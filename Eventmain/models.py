@@ -1,4 +1,3 @@
-from django.db import models
 
 # Create your models here.
 from django.db import models
@@ -116,7 +115,7 @@ class Media(models.Model):
     caption_eng = models.TextField(blank=True, null=True)
     caption_nep = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    url = models.TextField()
+    url = models.TextField(blank=True, null=True)
 
 
 
