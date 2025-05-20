@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 # Create your views here.
@@ -103,6 +104,8 @@ class BookingViewSet(viewsets.ModelViewSet):
 class MediaViewSet(viewsets.ModelViewSet):
     queryset = Media.objects.all()
     serializer_class = MediaSerializer
+    parser_classes = [MultiPartParser, FormParser]  # Enables file upload
+    permission_classes = [IsAuthenticated]
 
 class AuditLogViewSet(viewsets.ModelViewSet):
     queryset = AuditLog.objects.all()

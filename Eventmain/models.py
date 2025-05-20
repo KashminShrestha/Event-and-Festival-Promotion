@@ -111,11 +111,16 @@ class Media(models.Model):
     ]
 
     event = models.ForeignKey('Event', on_delete=models.CASCADE)
-    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES)
+    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES)#
     caption_eng = models.TextField(blank=True, null=True)
     caption_nep = models.TextField(blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    url = models.TextField(blank=True, null=True)
+    # price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    file = models.FileField(upload_to='media_uploads/', blank=True, null=True)  # <-- For uploads
+    url = models.URLField(blank=True, null=True)  # For external links
+    
+    def __str__(self):
+        return f"{self.media_type} for {self.event.name}"
+    
 
 
 
