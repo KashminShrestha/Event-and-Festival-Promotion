@@ -1,9 +1,11 @@
 from django.shortcuts import render
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser
-
-
-# Create your views here.
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from .models import Event
+from .serializers import EventSerializer
 from rest_framework import viewsets
 from .models import (
     Organizer, Event, Ticket, Booking, Media, AuditLog,
@@ -14,8 +16,6 @@ from .serializers import (
     MediaSerializer, AuditLogSerializer, NotificationSerializer, QRCodeSerializer,
     EventAnalyticsSerializer, EventReviewSerializer
 )
-
-# views.py
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -34,13 +34,6 @@ class OrganizerViewSet(viewsets.ModelViewSet):
         organizer.verified_by = request.user
         organizer.save()
         return Response({'detail': 'Organizer approved successfully.'}, status=status.HTTP_200_OK)
-
-# views.py
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
-from .models import Event
-from .serializers import EventSerializer
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
