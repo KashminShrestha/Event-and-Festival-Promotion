@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+from .models import Ticket
 
 # serializers.py
 class OrganizerSerializer(serializers.ModelSerializer):
