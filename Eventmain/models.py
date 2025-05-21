@@ -1,5 +1,4 @@
 
-# Create your models here.
 from django.db import models
 from django.conf import settings
 
@@ -27,8 +26,6 @@ class Organizer(models.Model):
 
     def __str__(self):
         return self.organization_name
-
-
 
 
 class Event(models.Model):
@@ -120,9 +117,7 @@ class Media(models.Model):
     
     def __str__(self):
         return f"{self.media_type} for {self.event.name}"
-    
-
-
+ 
 
 class AuditLog(models.Model):
     admin = models.ForeignKey(
