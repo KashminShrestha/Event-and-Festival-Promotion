@@ -2,7 +2,6 @@ from rest_framework import serializers
 from .models import *
 from .models import Ticket
 
-# serializers.py
 class OrganizerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organizer
@@ -22,24 +21,10 @@ class EventSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("end_time must be after start_time.")
         return data    
 
-# class EventSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Event
-#         fields = '__all__'
-# 
     def validate(self, data):
         if data['start_time'] >= data['end_time']:
             raise serializers.ValidationError("end_time must be after start_time.")
         return data    
-
-# class EventSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Event
-#         fields = '__all__'
-#     read_only_fields = ['organizer'] 
-
-from rest_framework import serializers
-from .models import Ticket
 
 class TicketSerializer(serializers.ModelSerializer):
     class Meta:
