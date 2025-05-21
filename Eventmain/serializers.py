@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import *
+from rest_framework import serializers
+from .models import Ticket
 
 # serializers.py
 class OrganizerSerializer(serializers.ModelSerializer):
@@ -26,9 +28,6 @@ class EventSerializer(serializers.ModelSerializer):
 #         model = Event
 #         fields = '__all__'
 #     read_only_fields = ['organizer'] 
-
-from rest_framework import serializers
-from .models import Ticket
 
 class TicketSerializer(serializers.ModelSerializer):
     class Meta:
