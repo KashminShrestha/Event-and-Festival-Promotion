@@ -111,6 +111,10 @@ class BookingSerializer(serializers.ModelSerializer):
 
         return booking
 
+class KhaltiPaymentSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    amount = serializers.IntegerField()
+    booking_id = serializers.IntegerField()
 
 class MediaSerializer(serializers.ModelSerializer):
     class Meta:

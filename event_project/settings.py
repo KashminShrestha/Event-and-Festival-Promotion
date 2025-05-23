@@ -30,7 +30,7 @@ import os
 
 SECRET_KEY = os.getenv("SECRET_KEY", "123")
 
-DEBUG = os.getenv("DEBUG", "True") == "True"
+DEBUG = True if os.getenv('DEBUG', 'True') == 'True' else False
 
 ALLOWED_HOSTS = []
 
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "user",
     "firebase",
     "drf_yasg",
+    
 ]
 
 MIDDLEWARE = [
@@ -70,7 +71,8 @@ FIREBASE_CONFIG = os.getenv("FIREBASE_CONFIG")
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        # "DIRS": [BASE_DIR / "templates"],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -139,9 +141,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
+# STATIC_URL = '/static/'
+
 STATIC_URL = "static/"
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATICFILES_DIRS = [BASE_DIR / "static"]
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -159,3 +164,8 @@ DJOSER = {
         "current_user": "user.serializers.CustomUserCreateSerializer",
     },
 }
+
+#KHALTI_SECRET_KEY = 
+KHALTI_SECRET_KEY = os.getenv("KHALTI_SANDBOX_SECRET_KEY", "test_secret_key")
+KHALTI_VERIFY_URL = "https://khalti.com/api/v2/payment/verify/"
+KHALTI_PUBLIC_KEY = os.getenv("KHALTI_SANDBOX_PUBLIC_KEY", "test_public_key")

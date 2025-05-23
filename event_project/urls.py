@@ -23,6 +23,8 @@ from drf_yasg import openapi
 from django.conf import settings
 from django.conf.urls.static import static
 
+from Eventmain.views import khalti_test_view
+
 schema_view = get_schema_view(
     openapi.Info(
         title="Your API Name",
@@ -51,7 +53,9 @@ urlpatterns = [
     path("", include("Eventmain.urls")),
     path("user/", include("user.urls")),
     path("", include("firebase.urls")),
+    path("", include("firebase.urls")),
     # path("auth/", include("djoser.urls")),
+    path("khalti-test/", khalti_test_view, name="khalti_test"),
     path("auth/", include("djoser.urls.authtoken")),
 ]
 if settings.DEBUG:
