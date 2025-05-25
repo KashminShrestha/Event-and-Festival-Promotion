@@ -221,3 +221,6 @@ class EventReviewViewSet(viewsets.ModelViewSet):
 
 def khalti_test_view(request):
     return render(request, "khalti_test.html")
+
+def khalti_test_view(request):
+    return render(request, 'khalti_test.html')
