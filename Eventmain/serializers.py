@@ -66,6 +66,50 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = '__all__'
+        read_only_fields = ['total_amount', 'status', 'created_at']
+
+    def validate(self, data):
+        ticket = data.get('ticket')
+        quantity = data.get('quantity')
+
+        if quantity is None and quantity<= 0:
+            raise serializers.ValidationError("Quantity must be a positive integer.")
+
+        # Calculate total booked quantity for this ticket
+        booked_quantity = Booking.objects.filter(
+            ticket=ticket,
+            status='paid'  # Only count paid bookings
+        ).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+        available_quantity = ticket.quantity - booked_quantity
+
+        if quantity > available_quantity:
+            raise serializers.ValidationError(
+                f"Only {available_quantity} tickets are available for this ticket type."
+            )
+
+        # Validate payment method
+        payment_method = data.get('payment_method')
+        if payment_method not in dict(Booking.PAYMENT_METHOD_CHOICES):
+            raise serializers.ValidationError("Invalid payment method.")
+
+        return data
+
+    def create(self, validated_data):
+        ticket = validated_data['ticket']
+        quantity = validated_data['quantity']
+
+        # Calculate total amount
+        validated_data['total_amount'] = ticket.price * quantity
+
+        # Set initial status as 'pending' or similar, to be updated after payment confirmation
+        validated_data['status'] = 'pending'
+
+        booking = super().create(validated_data)
+
+        # You can trigger payment process here or in the view
+
+        return booking
 
 
 class MediaSerializer(serializers.ModelSerializer):
