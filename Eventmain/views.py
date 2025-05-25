@@ -9,15 +9,8 @@ from rest_framework.exceptions import PermissionDenied
 from .models import Event
 from .serializers import EventSerializer
 from rest_framework import viewsets
-from .models import (
-    Organizer, Event, Ticket, Booking, Media, AuditLog,
-    Notification, QRCode, EventAnalytics, EventReview
-)
-from .serializers import (
-    OrganizerSerializer, EventSerializer, TicketSerializer, BookingSerializer,
-    MediaSerializer, AuditLogSerializer, NotificationSerializer, QRCodeSerializer,
-    EventAnalyticsSerializer, EventReviewSerializer
-)
+from .models import *
+from .serializers import *
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -39,7 +32,10 @@ class OrganizerViewSet(viewsets.ModelViewSet):
         organizer.status = "approved"
         organizer.verified_by = request.user
         organizer.save()
-        return Response({'detail': 'Organizer approved successfully.'}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Organizer approved successfully."}, status=status.HTTP_200_OK
+        )
+
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
