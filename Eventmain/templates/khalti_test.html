@@ -1,0 +1,34 @@
+<button id="payment-button">Pay with Khalti</button>
+<script src="https://khalti.com/static/khalti-checkout.js"></script>
+<script>
+    var config = {
+        "publicKey": "key a946f3179727440f9b59f998f6e027a8", // use your Khalti sandbox public key
+        "productIdentity": "14",
+        "productName": "Test Product",
+        "productUrl": "http://localhost:8000/api/bookings/",
+        "paymentPreference": [
+            "KHALTI",
+            "EBANKING",
+            "MOBILE_BANKING",
+            "CONNECT_IPS",
+            "SCT",
+        ],
+        "eventHandler": {
+            onSuccess (payload) {
+                // THIS IS THE TOKEN YOU NEED
+                console.log(payload.token);
+                // Use this token in your backend verification request
+            },
+            onError (error) {
+                console.log(error);
+            },
+            onClose () {
+                console.log('widget is closing');
+            }
+        }
+    };
+    var checkout = new KhaltiCheckout(config);
+    document.getElementById("payment-button").onclick = function () {
+        checkout.show({amount: 1000}); // amount in paisa (e.g., 1000 = Rs. 10)
+    }
+</script>
