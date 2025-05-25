@@ -66,7 +66,6 @@ class EventViewSet(viewsets.ModelViewSet):
         if user.is_staff:
             return Event.objects.all()
         if hasattr(user, "organizer_profile"):
-        if hasattr(user, "organizer_profile"):
             return Event.objects.filter(organizer=user.organizer_profile)
         return Event.objects.none()
 
@@ -75,12 +74,10 @@ class EventViewSet(viewsets.ModelViewSet):
 
         # Make sure user has an organizer profile
         organizer = getattr(user, "organizer_profile", None)
-        organizer = getattr(user, "organizer_profile", None)
         if not organizer:
             raise PermissionDenied("You are not registered as an organizer.")
 
         # Check if the organizer is approved
-        if organizer.status.strip().lower() != "approved":
         if organizer.status.strip().lower() != "approved":
             raise PermissionDenied("Organizer is not approved to create events.")
 
@@ -94,7 +91,6 @@ class EventViewSet(viewsets.ModelViewSet):
         if event.organizer.user != user:
             raise PermissionDenied("You do not own this event.")
         if event.status not in ["draft", "cancelled"]:
-        if event.status not in ["draft", "cancelled"]:
             raise PermissionDenied("Event cannot be edited in its current state.")
 
         serializer.save()
@@ -105,7 +101,6 @@ class EventViewSet(viewsets.ModelViewSet):
 
         if event.organizer.user != user:
             raise PermissionDenied("You do not own this event.")
-        if event.status not in ["draft", "cancelled"]:
         if event.status not in ["draft", "cancelled"]:
             raise PermissionDenied("Event cannot be deleted in its current state.")
 
