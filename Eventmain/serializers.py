@@ -72,13 +72,13 @@ class BookingSerializer(serializers.ModelSerializer):
         ticket = data.get('ticket')
         quantity = data.get('quantity')
 
-        if quantity is None and quantity<= 0:
+        if quantity is None or quantity <= 0:
             raise serializers.ValidationError("Quantity must be a positive integer.")
 
-        # Calculate total booked quantity for this ticket
+        # Count both pending and paid bookings
         booked_quantity = Booking.objects.filter(
             ticket=ticket,
-            status='paid'  # Only count paid bookings
+            status__in=['pending', 'paid']
         ).aggregate(total=models.Sum('quantity'))['total'] or 0
 
         available_quantity = ticket.quantity - booked_quantity

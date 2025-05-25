@@ -1,10 +1,15 @@
 import requests
+import io
+import qrcode
+from django.core.files.base import ContentFile
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status, viewsets
+from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
 from django.shortcuts import render
-from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from .models import Event
 from .serializers import EventSerializer
@@ -91,15 +96,6 @@ class EventViewSet(viewsets.ModelViewSet):
 class TicketViewSet(viewsets.ModelViewSet):
     queryset = Ticket.objects.all()
     serializer_class = TicketSerializer
-
-
-import io
-import qrcode
-from django.core.files.base import ContentFile
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework import status, viewsets
-from rest_framework.permissions import IsAuthenticated
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -222,5 +218,6 @@ class EventReviewViewSet(viewsets.ModelViewSet):
     queryset = EventReview.objects.all()
     serializer_class = EventReviewSerializer
 
+
 def khalti_test_view(request):
-    return render(request, 'khalti_test.html')
+    return render(request, "khalti_test.html")
