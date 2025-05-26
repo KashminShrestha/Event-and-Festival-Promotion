@@ -6,30 +6,26 @@ from django.core.files.base import ContentFile
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.conf import settings
 from django.shortcuts import render
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 from .models import Event
 from .serializers import EventSerializer
-from rest_framework import viewsets
 from .models import *
 from .serializers import *
 from .models import *
 from .serializers import *
-from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework import status, permissions
+from .models import AuditLog
 
 
 class OrganizerViewSet(viewsets.ModelViewSet):
     queryset = Organizer.objects.all()
     serializer_class = OrganizerSerializer
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
     def approve(self, request, pk=None):
         organizer = self.get_object()
         if organizer.status == "approved":
@@ -37,23 +33,39 @@ class OrganizerViewSet(viewsets.ModelViewSet):
                 {"detail": "Organizer already approved."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if organizer.status == "approved":
-            return Response(
-                {"detail": "Organizer already approved."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        organizer.status = "approved"
         organizer.status = "approved"
         organizer.verified_by = request.user
         organizer.save()
+        # Audit log
+        AuditLog.objects.create(
+            admin=request.user,
+            action="Approved organizer",
+            target_type="Organizer",
+            target_id=organizer.id,
+        )
         return Response(
             {"detail": "Organizer approved successfully."}, status=status.HTTP_200_OK
         )
 
-        return Response(
-            {"detail": "Organizer approved successfully."}, status=status.HTTP_200_OK
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        organizer = self.get_object()
+        if organizer.status == "rejected":
+            return Response(
+                {"detail": "Organizer already rejected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        organizer.status = "rejected"
+        organizer.verified_by = request.user
+        organizer.save()
+        # Audit log
+        AuditLog.objects.create(
+            admin=request.user,
+            action="Rejected organizer",
+            target_type="Organizer",
+            target_id=organizer.id,
         )
+        return Response({"detail": "Organizer rejected."}, status=status.HTTP_200_OK)
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -105,6 +117,69 @@ class EventViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Event cannot be deleted in its current state.")
 
         return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def approve(self, request, pk=None):
+        event = self.get_object()
+        if event.status == "published":
+            return Response(
+                {"detail": "Event already published."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        event.status = "published"
+        event.save()
+        AuditLog.objects.create(
+            admin=request.user,
+            action="Approved event",
+            target_type="Event",
+            target_id=event.id,
+        )
+        return Response(
+            {"detail": "Event approved and published."}, status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        event = self.get_object()
+        if event.status == "cancelled":
+            return Response(
+                {"detail": "Event already cancelled."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        event.status = "cancelled"
+        event.save()
+        AuditLog.objects.create(
+            admin=request.user,
+            action="Rejected event",
+            target_type="Event",
+            target_id=event.id,
+        )
+        return Response(
+            {"detail": "Event rejected and cancelled."}, status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def change_status(self, request, pk=None):
+        event = self.get_object()
+        new_status = request.data.get("status")
+        valid_statuses = ["draft", "published", "cancelled"]
+        if new_status not in valid_statuses:
+            return Response(
+                {"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        old_status = event.status
+        event.status = new_status
+        event.save()
+        AuditLog.objects.create(
+            admin=request.user,
+            action=f"Changed event status from {old_status} to {new_status}",
+            target_type="Event",
+            target_id=event.id,
+        )
+        return Response(
+            {"detail": f"Event status changed to {new_status}."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class TicketViewSet(viewsets.ModelViewSet):
