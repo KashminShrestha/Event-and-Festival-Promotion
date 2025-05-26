@@ -1,3 +1,4 @@
+from datetime import timezone
 import requests
 import io
 import qrcode
@@ -21,7 +22,6 @@ from .serializers import *
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, permissions
-
 
 
 class OrganizerViewSet(viewsets.ModelViewSet):
@@ -293,11 +293,9 @@ class MediaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 
-
 class AuditLogViewSet(viewsets.ModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
-
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -305,30 +303,58 @@ class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
 
 
-
 class QRCodeViewSet(viewsets.ModelViewSet):
     queryset = QRCode.objects.all()
     serializer_class = QRCodeSerializer
 
 
+class EventReviewViewSet(viewsets.ModelViewSet):
+    queryset = EventReview.objects.all()
+    serializer_class = EventReviewSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 class EventAnalyticsViewSet(viewsets.ModelViewSet):
     queryset = EventAnalytics.objects.all()
     serializer_class = EventAnalyticsSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
+    @action(detail=False, methods=["post"], url_path="increment-view")
+    def increment_view(self, request):
+        event_id = request.data.get("event")
+        user = request.user
+        try:
+            analytics, created = EventAnalytics.objects.get_or_create(
+                event_id=event_id, user=user
+            )
+            analytics.views += 1
+            analytics.last_viewed_at = timezone.now()
+            analytics.save()
+            return Response({"detail": "View incremented."}, status=status.HTTP_200_OK)
+        except Event.DoesNotExist:
+            return Response(
+                {"detail": "Event not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
-
-class EventReviewViewSet(viewsets.ModelViewSet):
-    queryset = EventReview.objects.all()
-    serializer_class = EventReviewSerializer
+    @action(detail=False, methods=["post"], url_path="increment-click")
+    def increment_click(self, request):
+        event_id = request.data.get("event")
+        user = request.user
+        try:
+            analytics, created = EventAnalytics.objects.get_or_create(
+                event_id=event_id, user=user
+            )
+            analytics.clicks += 1
+            analytics.save()
+            return Response({"detail": "Click incremented."}, status=status.HTTP_200_OK)
+        except Event.DoesNotExist:
+            return Response(
+                {"detail": "Event not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
 
 def khalti_test_view(request):
     return render(request, "khalti_test.html")
-
-
-def khalti_test_view(request):
-    return render(request, "khalti_test.html")
-
-def khalti_test_view(request):
-    return render(request, 'khalti_test.html')
