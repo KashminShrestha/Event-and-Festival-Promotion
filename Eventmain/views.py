@@ -399,6 +399,32 @@ class MediaViewSet(viewsets.ModelViewSet):
     serializer_class = MediaSerializer
     parser_classes = [MultiPartParser, FormParser]  # Enables file upload
     permission_classes = [IsAuthenticated]
+    
+    # Multilingual handling methods
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = self._apply_language(serializer.data, request)
+        return Response(data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            data = [self._apply_language(item, request) for item in serializer.data]
+            return self.get_paginated_response(data)
+        serializer = self.get_serializer(queryset, many=True)
+        data = [self._apply_language(item, request) for item in serializer.data]
+        return Response(data)
+
+    def _apply_language(self, data, request):
+        lang = request.headers.get('Accept-Language', 'en').lower()
+        if lang == 'ne':
+            data['caption_display'] = data.get('caption_nep') or data.get('caption_eng')
+        else:
+            data['caption_display'] = data.get('caption_eng') or data.get('caption_nep')
+        return data
 
 
 class AuditLogViewSet(viewsets.ModelViewSet):
