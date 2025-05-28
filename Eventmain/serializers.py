@@ -17,15 +17,11 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = "__all__"
+        read_only_fields = ['organizer']
 
     def validate(self, data):
-        if data["start_time"] >= data["end_time"]:
-            raise serializers.ValidationError("end_time must be after start_time.")
-        return data
-
-    def validate(self, data):
-        if data["start_time"] >= data["end_time"]:
-            raise serializers.ValidationError("end_time must be after start_time.")
+        if data["start_date_time"] >= data["end_date_time"]:
+            raise serializers.ValidationError("end_date_time must be after start_date_time.")
         return data
 
 

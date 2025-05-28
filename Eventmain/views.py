@@ -118,6 +118,39 @@ class EventViewSet(viewsets.ModelViewSet):
 
         return super().destroy(request, *args, **kwargs)
 
+    # Multilingual handling methods
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = self._apply_language(serializer.data, request)
+        return Response(data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            data = [self._apply_language(item, request) for item in serializer.data]
+            return self.get_paginated_response(data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        data = [self._apply_language(item, request) for item in serializer.data]
+        return Response(data)
+
+    def _apply_language(self, data, request):
+        """Helper method to handle language switching"""
+        lang = request.headers.get("Accept-Language", "en").lower()
+        if lang == "ne":
+            # Preserve original values while overriding display fields
+            data["name_display"] = data.get("name_nep") or data["name"]
+            data["description_display"] = (
+                data.get("description_nep") or data["description"]
+            )
+        else:
+            data["name_display"] = data["name"]
+            data["description_display"] = data["description"]
+        return data
+
     @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
     def approve(self, request, pk=None):
         event = self.get_object()
