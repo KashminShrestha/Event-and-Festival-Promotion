@@ -53,6 +53,9 @@ urlpatterns = [
     path("", include("firebase.urls")),
     # path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.authtoken")),
+    
+    # Khalti payment integration
+    path("khalti/", include("khalti.urls")),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

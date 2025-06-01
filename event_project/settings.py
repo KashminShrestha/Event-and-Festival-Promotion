@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "user",
     "firebase",
     "drf_yasg",
+    'khalti',
 ]
 
 MIDDLEWARE = [
@@ -205,3 +206,11 @@ LOGGING = {
         },
     },
 }
+
+BASE_URL = "http://localhost:8080" 
+FRONTEND_URL = "http://localhost:3000"
+
+#khalti settings
+KHALTI_PUBLIC_KEY = os.getenv("KHALTI_PUBLIC_KEY", "test_public_key")
+KHALTI_SECRET_KEY = os.getenv("KHALTI_SECRET_KEY", "test_secret_key")
+KHALTI_VERIFY_URL = os.getenv("KHALTI_VERIFY_URL", "https://test-pay.khalti.com/api/v2/payment/verify/")
