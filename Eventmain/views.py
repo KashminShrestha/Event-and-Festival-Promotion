@@ -11,15 +11,14 @@ from django.conf import settings
 from django.shortcuts import render
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied
-from .models import Event
-from .serializers import EventSerializer
+from .models import Event, Booking, QRCode
+from .serializers import EventSerializer, BookingSerializer
 from .models import *
 from .serializers import *
 from .models import *
 from .serializers import *
 from rest_framework import status, permissions
 from .models import AuditLog
-
 
 class OrganizerViewSet(viewsets.ModelViewSet):
     queryset = Organizer.objects.all()
@@ -225,173 +224,238 @@ class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
 
+    @action(detail=False, methods=["post"])
+    def create_with_payment(self, request):
+        """
+        Create booking and initiate Khalti E-Payment.
+        This replaces the widget-based approach.
+        """
+        try:
+            # Extract booking data
+            print("Khalti Secret Key:", settings.KHALTI_SECRET_KEY)
+            ticket_id = request.data.get('ticket_id')
+            quantity = request.data.get('quantity')
+            
+            if not ticket_id or not quantity:
+                return Response(
+                    {"error": "ticket_id and quantity are required"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get ticket and calculate total
+            from .models import Ticket
+            ticket = Ticket.objects.get(id=ticket_id)
+            total_amount = ticket.price * quantity
+
+            # Create booking (status = pending until payment)
+            booking = Booking.objects.create(
+                user=request.user,
+                ticket=ticket,
+                quantity=quantity,
+                total_amount=total_amount,
+                status='pending',  # Will change to 'paid' after callback
+                payment_method='khalti'
+            )
+
+            # Prepare Khalti E-Payment payload
+            payload = {
+                "return_url": f"{settings.BASE_URL}/api/bookings/khalti-callback/",
+                "website_url": settings.BASE_URL,
+                "amount": int(total_amount * 100),  # Convert Rs to paisa
+                "purchase_order_id": str(booking.id),
+                "purchase_order_name": f"Ticket for {ticket.event.name}",
+                "customer_info": {
+                    "name": request.user.get_full_name() or request.user.username,
+                    "email": request.user.email,
+                },
+                "amount_breakdown": [
+                    {
+                        "label": f"{ticket.name} x {quantity}",
+                        "amount": int(total_amount * 100)
+                    }
+                ],
+                "product_details": [
+                    {
+                        "identity": str(ticket.id),
+                        "name": ticket.name,
+                        "total_price": int(total_amount * 100),
+                        "quantity": quantity,
+                        "unit_price": int(ticket.price * 100),
+                    }
+                ]
+            }
+
+            headers = {
+            'Authorization': f'key {settings.KHALTI_SECRET_KEY}',
+            'Content-Type': 'application/json',
+            }
+
+
+            # Initiate payment with Khalti
+            response = requests.post(
+                "https://a.khalti.com/api/v2/epayment/initiate/",
+                headers=headers,
+                json=payload
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                payment_url = data.get("payment_url")
+                
+                if payment_url:
+                    return Response({
+                        "booking_id": booking.id,
+                        "payment_url": payment_url,
+                        "message": "Booking created. Please complete payment."
+                    })
+                else:
+                    booking.delete()  # Clean up on failure
+                    return Response(
+                        {"error": "Payment URL not received from Khalti"}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                booking.delete()  # Clean up on failure
+                return Response(
+                    {"error": "Failed to initiate payment", "details": response.text}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=["get"])
+    def khalti_callback(self, request):
+        """
+        Handle Khalti's payment callback after user completes payment.
+        This replaces manual token verification.
+        """
+        # Extract callback parameters
+        booking_id = request.GET.get("purchase_order_id")
+        payment_status = request.GET.get("status")
+        pidx = request.GET.get('pidx')
+        amount = request.GET.get('amount')
+
+        print(f"Khalti Callback: booking_id={booking_id}, status={payment_status}, pidx={pidx}")
+
+        # Validate callback parameters
+        if not booking_id or payment_status != "Completed" or not pidx:
+            return Response(
+                {"error": "Invalid callback parameters"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Verify payment with Khalti
+            verification_response = requests.post(
+                "https://test-pay.khalti.com/api/v2/epayment/lookup/",
+                json={'pidx': pidx},
+                headers={
+                    "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
+                    "Content-Type": "application/json"
+                }
+            )
+
+            if verification_response.status_code == 200:
+                verification_data = verification_response.json()
+                
+                # Check if payment is actually not completed
+                if verification_data.get("status") != "Completed":
+                    return Response(
+                        {"error": "Payment verification failed"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Update booking status
+                booking = Booking.objects.get(id=booking_id)
+                booking.status = 'paid'
+                booking.transaction_id = pidx  # Store pidx as transaction_id
+                booking.save()
+
+                # Generate QR code (keep your existing logic)
+                qr = qrcode.make(
+                    f"BookingID:{booking.id};TransactionID:{booking.transaction_id}"
+                )
+
+                buffer = io.BytesIO()
+                qr.save(buffer)
+                buffer.seek(0)
+                filename = f"booking_{booking.id}_qr.png"
+                qr_image_file = ContentFile(buffer.read(), filename)
+
+                qr_code_obj = QRCode.objects.create(
+                    booking=booking,
+                    qr_image=qr_image_file,
+                )
+
+                # Notification signals will fire automatically when booking.save() is called!
+                print(f"✅ Booking {booking.id} payment confirmed, notifications will be sent")
+
+                # Redirect to success page
+                frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+                return redirect(f"{frontend_url}/booking-success?booking_id={booking.id}")
+
+            else:
+                return Response(
+                    {"error": "Payment verification failed", "details": verification_response.text}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        except Booking.DoesNotExist:
+            return Response(
+                {"error": "Booking not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=True, methods=["post"])
-    def verify_payment(self, request, pk=None):
+    def refund_booking(self, request, pk=None):
+        """
+        Refund a booking (keep your existing logic but update for E-Payment)
+        """
         booking = self.get_object()
-        token = request.data.get("token")
-        amount = request.data.get("amount")
-
-        print(f"Received token: {token}, amount: {amount}")  # Debug print
-
-        if not token or not amount:
+        
+        if booking.status != 'paid':
             return Response(
-                {"detail": "Token and amount required."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": "Only paid bookings can be refunded"}, 
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        verify_url = getattr(settings, "KHALTI_VERIFY_URL", None)
-        if not verify_url:
+        try:
+            # For E-Payment, use the refund endpoint (if available)
+            # Note: You may need to check Khalti's E-Payment refund documentation
+            refund_url = "https://test-pay.khalti.com/api/v2/epayment/refund/"
+            headers = {"Authorization": f"key {settings.KHALTI_SECRET_KEY}"}
+            payload = {
+                "pidx": booking.transaction_id,  # Use pidx for E-Payment refunds
+                "amount": int(booking.total_amount * 100)  # Amount in paisa
+            }
+
+            response = requests.post(refund_url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                booking.status = "refunded"
+                booking.save()  # This will trigger refund notification signals
+                
+                return Response({"message": "Booking refunded successfully"})
+            else:
+                return Response(
+                    {"error": "Refund failed", "details": response.text}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        except Exception as e:
             return Response(
-                {"detail": "Khalti verify URL not configured."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {"token": token, "amount": int(amount)}
-
-        resp = requests.post(verify_url, headers=headers, json=payload)
-        data = resp.json()
-
-        print("Khalti response:", data)  # Debug print
-
-        # Khalti returns status "OK" on success in 'status' field
-        if resp.status_code == 200 and data.get("status") == "OK":
-            booking.status = "paid"
-            # Prefer 'idx' from root or inside 'details'
-            booking.transaction_id = data.get("idx") or data.get("details", {}).get(
-                "idx"
-            )
-            booking.save()
-
-            # Generate QR code
-            qr = qrcode.make(
-                f"BookingID:{booking.id};TransactionID:{booking.transaction_id}"
-            )
-
-            # Save QR code image to QRCode model
-            buffer = io.BytesIO()
-            qr.save(buffer)
-            buffer.seek(0)
-            filename = f"booking_{booking.id}_qr.png"
-            qr_image_file = ContentFile(buffer.read(), filename)
-
-            qr_code_obj = QRCode.objects.create(
-                booking=booking,
-                qr_image=qr_image_file,
-            )
-
-            # TODO: Send notification/email if needed
-
-            return Response({"detail": "Payment verified and booking confirmed."})
-
-        else:
-            return Response(
-                {"detail": "Payment verification failed.", "error": data},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    @staticmethod
-    def refund_booking(booking, amount=None, mobile=None):
-        refund_url = f"https://khalti.com/api/merchant-transaction/{booking.transaction_id}/refund/"
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {}
-
-        if mobile:
-            payload["mobile"] = mobile
-        if amount:
-            payload["amount"] = int(amount)  # amount in paisa
-
-        response = requests.post(refund_url, headers=headers, json=payload)
-        if response.status_code == 200:
-            booking.status = "refunded"
-            booking.save()
-            return True
-        return False
-
-    permission_classes = [IsAuthenticated]
-
-    @action(detail=True, methods=["post"])
-    def verify_payment(self, request, pk=None):
-        booking = self.get_object()
-        token = request.data.get("token")
-        amount = request.data.get("amount")
-
-        print(f"Received token: {token}, amount: {amount}")  # Debug print
-
-        if not token or not amount:
-            return Response(
-                {"detail": "Token and amount required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        verify_url = getattr(settings, "KHALTI_VERIFY_URL", None)
-        if not verify_url:
-            return Response(
-                {"detail": "Khalti verify URL not configured."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {"token": token, "amount": int(amount)}
-
-        resp = requests.post(verify_url, headers=headers, json=payload)
-        data = resp.json()
-
-        print("Khalti response:", data)  # Debug print
-
-        # Khalti returns status "OK" on success in 'status' field
-        if resp.status_code == 200 and data.get("status") == "OK":
-            booking.status = "paid"
-            # Prefer 'idx' from root or inside 'details'
-            booking.transaction_id = data.get("idx") or data.get("details", {}).get(
-                "idx"
-            )
-            booking.save()
-
-            # Generate QR code
-            qr = qrcode.make(
-                f"BookingID:{booking.id};TransactionID:{booking.transaction_id}"
-            )
-
-            # Save QR code image to QRCode model
-            buffer = io.BytesIO()
-            qr.save(buffer)
-            buffer.seek(0)
-            filename = f"booking_{booking.id}_qr.png"
-            qr_image_file = ContentFile(buffer.read(), filename)
-
-            qr_code_obj = QRCode.objects.create(
-                booking=booking,
-                qr_image=qr_image_file,
-            )
-
-            # TODO: Send notification/email if needed
-
-            return Response({"detail": "Payment verified and booking confirmed."})
-
-        else:
-            return Response(
-                {"detail": "Payment verification failed.", "error": data},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    @staticmethod
-    def refund_booking(booking, amount=None, mobile=None):
-        refund_url = f"https://khalti.com/api/merchant-transaction/{booking.transaction_id}/refund/"
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {}
-
-        if mobile:
-            payload["mobile"] = mobile
-        if amount:
-            payload["amount"] = int(amount)  # amount in paisa
-
-        response = requests.post(refund_url, headers=headers, json=payload)
-        if response.status_code == 200:
-            booking.status = "refunded"
-            booking.save()
-            return True
-        return False
 
 
 class MediaViewSet(viewsets.ModelViewSet):
