@@ -207,7 +207,7 @@ LOGGING = {
     },
 }
 
-BASE_URL = "http://localhost:8080" 
+BASE_URL = "http://localhost:8000" 
 FRONTEND_URL = "http://localhost:3000"
 
 #khalti settings
