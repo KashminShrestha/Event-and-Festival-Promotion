@@ -222,7 +222,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=["post"])
     def create_with_payment(self, request):
@@ -259,7 +259,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
             # Prepare Khalti E-Payment payload
             payload = {
-                "return_url": f"{settings.BASE_URL}/api/bookings/khalti-callback/",
+                "return_url": f"{settings.BASE_URL}/api/bookings/khalti_callback/",
                 "website_url": settings.BASE_URL,
                 "amount": int(total_amount * 100),  # Convert Rs to paisa
                 "purchase_order_id": str(booking.id),
@@ -333,6 +333,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         Handle Khalti's payment callback after user completes payment.
         This replaces manual token verification.
         """
+        print("Khalti Callback Received") # debugging 
         # Extract callback parameters
         booking_id = request.GET.get("purchase_order_id")
         payment_status = request.GET.get("status")
@@ -351,7 +352,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         try:
             # Verify payment with Khalti
             verification_response = requests.post(
-                "https://test-pay.khalti.com/api/v2/epayment/lookup/",
+                "https://dev.khalti.com/api/v2/epayment/lookup/",
                 json={'pidx': pidx},
                 headers={
                     "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
