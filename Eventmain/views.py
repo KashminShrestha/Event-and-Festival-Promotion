@@ -20,6 +20,7 @@ from .serializers import *
 from rest_framework import status, permissions
 from .models import AuditLog
 
+
 class OrganizerViewSet(viewsets.ModelViewSet):
     queryset = Organizer.objects.all()
     serializer_class = OrganizerSerializer
@@ -233,19 +234,37 @@ class BookingViewSet(viewsets.ModelViewSet):
         try:
             # Extract booking data
             print("Khalti Secret Key:", settings.KHALTI_SECRET_KEY)
-            ticket_id = request.data.get('ticket_id')
-            quantity = request.data.get('quantity')
-            
+            ticket_id = request.data.get("ticket_id")
+            quantity = request.data.get("quantity")
+
             if not ticket_id or not quantity:
                 return Response(
-                    {"error": "ticket_id and quantity are required"}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": "ticket_id and quantity are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Get ticket and calculate total
             from .models import Ticket
+
             ticket = Ticket.objects.get(id=ticket_id)
             total_amount = ticket.price * quantity
+
+            # Count how many tickets are already booked (only for 'paid' bookings)
+            booked_quantity = (
+                Booking.objects.filter(ticket=ticket, status="paid").aggregate(
+                    total=models.Sum("quantity")
+                )["total"]
+                or 0
+            )
+
+            remaining_quantity = ticket.quantity - booked_quantity
+
+            # Ensure requested quantity does not exceed remaining
+            if quantity > remaining_quantity:
+                return Response(
+                    {"error": f"Only {remaining_quantity} tickets available."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Create booking (status = pending until payment)
             booking = Booking.objects.create(
@@ -253,8 +272,8 @@ class BookingViewSet(viewsets.ModelViewSet):
                 ticket=ticket,
                 quantity=quantity,
                 total_amount=total_amount,
-                status='pending',  # Will change to 'paid' after callback
-                payment_method='khalti'
+                status="pending",  # Will change to 'paid' after callback
+                payment_method="khalti",
             )
 
             # Prepare Khalti E-Payment payload
@@ -271,7 +290,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                 "amount_breakdown": [
                     {
                         "label": f"{ticket.name} x {quantity}",
-                        "amount": int(total_amount * 100)
+                        "amount": int(total_amount * 100),
                     }
                 ],
                 "product_details": [
@@ -282,49 +301,49 @@ class BookingViewSet(viewsets.ModelViewSet):
                         "quantity": quantity,
                         "unit_price": int(ticket.price * 100),
                     }
-                ]
+                ],
             }
 
             headers = {
-            'Authorization': f'key {settings.KHALTI_SECRET_KEY}',
-            'Content-Type': 'application/json',
+                "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
+                "Content-Type": "application/json",
             }
-
 
             # Initiate payment with Khalti
             response = requests.post(
                 "https://a.khalti.com/api/v2/epayment/initiate/",
                 headers=headers,
-                json=payload
+                json=payload,
             )
 
             if response.status_code == 200:
                 data = response.json()
                 payment_url = data.get("payment_url")
-                
+
                 if payment_url:
-                    return Response({
-                        "booking_id": booking.id,
-                        "payment_url": payment_url,
-                        "message": "Booking created. Please complete payment."
-                    })
+                    return Response(
+                        {
+                            "booking_id": booking.id,
+                            "payment_url": payment_url,
+                            "message": "Booking created. Please complete payment.",
+                        }
+                    )
                 else:
                     booking.delete()  # Clean up on failure
                     return Response(
-                        {"error": "Payment URL not received from Khalti"}, 
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        {"error": "Payment URL not received from Khalti"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
             else:
                 booking.delete()  # Clean up on failure
                 return Response(
-                    {"error": "Failed to initiate payment", "details": response.text}, 
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {"error": "Failed to initiate payment", "details": response.text},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         except Exception as e:
             return Response(
-                {"error": str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     @action(detail=False, methods=["get"])
@@ -333,46 +352,48 @@ class BookingViewSet(viewsets.ModelViewSet):
         Handle Khalti's payment callback after user completes payment.
         This replaces manual token verification.
         """
-        print("Khalti Callback Received") # debugging 
+        print("Khalti Callback Received")  # debugging
         # Extract callback parameters
         booking_id = request.GET.get("purchase_order_id")
         payment_status = request.GET.get("status")
-        pidx = request.GET.get('pidx')
-        amount = request.GET.get('amount')
+        pidx = request.GET.get("pidx")
+        amount = request.GET.get("amount")
 
-        print(f"Khalti Callback: booking_id={booking_id}, status={payment_status}, pidx={pidx}")
+        print(
+            f"Khalti Callback: booking_id={booking_id}, status={payment_status}, pidx={pidx}"
+        )
 
         # Validate callback parameters
         if not booking_id or payment_status != "Completed" or not pidx:
             return Response(
-                {"error": "Invalid callback parameters"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid callback parameters"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             # Verify payment with Khalti
             verification_response = requests.post(
                 "https://dev.khalti.com/api/v2/epayment/lookup/",
-                json={'pidx': pidx},
+                json={"pidx": pidx},
                 headers={
                     "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
-                    "Content-Type": "application/json"
-                }
+                    "Content-Type": "application/json",
+                },
             )
 
             if verification_response.status_code == 200:
                 verification_data = verification_response.json()
-                
+
                 # Check if payment is actually not completed
                 if verification_data.get("status") != "Completed":
                     return Response(
-                        {"error": "Payment verification failed"}, 
-                        status=status.HTTP_400_BAD_REQUEST
+                        {"error": "Payment verification failed"},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 # Update booking status
                 booking = Booking.objects.get(id=booking_id)
-                booking.status = 'paid'
+                booking.status = "paid"
                 booking.transaction_id = pidx  # Store pidx as transaction_id
                 booking.save()
 
@@ -393,27 +414,34 @@ class BookingViewSet(viewsets.ModelViewSet):
                 )
 
                 # Notification signals will fire automatically when booking.save() is called!
-                print(f"✅ Booking {booking.id} payment confirmed, notifications will be sent")
+                print(
+                    f"âœ… Booking {booking.id} payment confirmed, notifications will be sent"
+                )
 
                 # Redirect to success page
-                frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-                return redirect(f"{frontend_url}/booking-success?booking_id={booking.id}")
+                frontend_url = getattr(
+                    settings, "FRONTEND_URL", "http://localhost:3000"
+                )
+                return redirect(
+                    f"{frontend_url}/booking-success?booking_id={booking.id}"
+                )
 
             else:
                 return Response(
-                    {"error": "Payment verification failed", "details": verification_response.text}, 
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {
+                        "error": "Payment verification failed",
+                        "details": verification_response.text,
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         except Booking.DoesNotExist:
             return Response(
-                {"error": "Booking not found"}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Booking not found"}, status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
             return Response(
-                {"error": str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     @action(detail=True, methods=["post"])
@@ -422,11 +450,11 @@ class BookingViewSet(viewsets.ModelViewSet):
         Refund a booking (keep your existing logic but update for E-Payment)
         """
         booking = self.get_object()
-        
-        if booking.status != 'paid':
+
+        if booking.status != "paid":
             return Response(
-                {"error": "Only paid bookings can be refunded"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Only paid bookings can be refunded"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -436,26 +464,25 @@ class BookingViewSet(viewsets.ModelViewSet):
             headers = {"Authorization": f"key {settings.KHALTI_SECRET_KEY}"}
             payload = {
                 "pidx": booking.transaction_id,  # Use pidx for E-Payment refunds
-                "amount": int(booking.total_amount * 100)  # Amount in paisa
+                "amount": int(booking.total_amount * 100),  # Amount in paisa
             }
 
             response = requests.post(refund_url, headers=headers, json=payload)
-            
+
             if response.status_code == 200:
                 booking.status = "refunded"
                 booking.save()  # This will trigger refund notification signals
-                
+
                 return Response({"message": "Booking refunded successfully"})
             else:
                 return Response(
-                    {"error": "Refund failed", "details": response.text}, 
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {"error": "Refund failed", "details": response.text},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         except Exception as e:
             return Response(
-                {"error": str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -464,7 +491,7 @@ class MediaViewSet(viewsets.ModelViewSet):
     serializer_class = MediaSerializer
     parser_classes = [MultiPartParser, FormParser]  # Enables file upload
     permission_classes = [IsAuthenticated]
-    
+
     # Multilingual handling methods
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -484,11 +511,11 @@ class MediaViewSet(viewsets.ModelViewSet):
         return Response(data)
 
     def _apply_language(self, data, request):
-        lang = request.headers.get('Accept-Language', 'en').lower()
-        if lang == 'ne':
-            data['caption_display'] = data.get('caption_nep') or data.get('caption_eng')
+        lang = request.headers.get("Accept-Language", "en").lower()
+        if lang == "ne":
+            data["caption_display"] = data.get("caption_nep") or data.get("caption_eng")
         else:
-            data['caption_display'] = data.get('caption_eng') or data.get('caption_nep')
+            data["caption_display"] = data.get("caption_eng") or data.get("caption_nep")
         return data
 
 
