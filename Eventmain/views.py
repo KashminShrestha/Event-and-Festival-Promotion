@@ -1,8 +1,8 @@
 from datetime import timezone
 import requests
+import base64
 import io
 import qrcode
-from django.core.files.base import ContentFile
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.core.files.storage import default_storage
@@ -12,6 +12,8 @@ from django.conf import settings
 from django.shortcuts import redirect, render
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
 from .models import Event, Booking, QRCode
 from .serializers import EventSerializer, BookingSerializer
 from .models import *
@@ -359,7 +361,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         payment_status = request.GET.get("status")
         pidx = request.GET.get("pidx")
         amount = request.GET.get("amount")
-        transaction_id = request.GET.get("transaction_id")
         tidx = request.GET.get("tidx")
 
         print(
@@ -401,24 +402,61 @@ class BookingViewSet(viewsets.ModelViewSet):
                 booking.save()
 
                 # Generate QR Code
-                qr_data = (
-                    f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
-                )
+                qr_data = f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
                 qr = qrcode.make(qr_data)
 
                 buffer = io.BytesIO()
                 qr.save(buffer)
                 buffer.seek(0)
 
-                filename = f"qr_codes/booking_{booking.id}/transaction_id{tidx}"
-                path = default_storage.save(filename, ContentFile(buffer.read()))
+                # Encode image to base64
+                qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                qr_data_uri = f"data:image/png;base64,{qr_base64}"
 
-                # Save QR code path
-                QRCode.objects.create(booking=booking, qr_code=path)
+                # Save base64 QR code to DB
+                QRCode.objects.create(booking=booking, qr_code=qr_data_uri)
 
                 print(f"✅ Booking {booking.id} payment confirmed and QR saved.")
-                
-                
+
+                # QR code already in buffer
+                qr_image_data = buffer.getvalue()
+
+                # Email content
+                subject = f"Your Booking Confirmation - {booking.ticket.event.name}"
+                to_email = booking.user.email
+
+                # Render optional HTML template
+                html_message = render_to_string(
+                    "emails/booking_confirmation.html",
+                    {
+                        "user": booking.user,
+                        "booking": booking,
+                        "ticket": booking.ticket,
+                        "quantity": booking.quantity,
+                        "total_amount": booking.total_amount,
+                        "qr_image": qr_data_uri, 
+                    },
+                )
+
+                # Create email with HTML content
+                email = EmailMessage(
+                    subject,
+                    html_message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [to_email],
+                )
+                email.content_subtype = "html"
+
+                # Attach QR code image
+                email.attach("booking_qr.png", qr_image_data, "image/png")
+
+                # Send email
+                try:
+                    email.send()
+                    print(f"✅ Email with QR code sent to {to_email}")
+                except Exception as e:
+                    print(f"❌ Failed to send email: {e}")
+
                 # Redirect to success page
                 frontend_url = getattr(
                     settings, "FRONTEND_URL", "http://localhost:3000"

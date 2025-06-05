@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     "user",
     "firebase",
     "drf_yasg",
-    'khalti',
+    "khalti",
 ]
 
 MIDDLEWARE = [
@@ -141,8 +141,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -162,8 +162,8 @@ DJOSER = {
 }
 
 # Email settings
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
-DEFAULT_FROM_EMAIL = 'notifications@eventnepal.com'
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # For development
+DEFAULT_FROM_EMAIL = "notifications@eventnepal.com"
 
 # In production, use SMTP
 """
@@ -177,40 +177,59 @@ EMAIL_HOST_PASSWORD = 'your-password'
 
 # Logging configuration
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
         },
     },
-    'handlers': {
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
         },
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': 'notifications.log',
-            'formatter': 'verbose',
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": "notifications.log",
+            "formatter": "verbose",
         },
     },
-    'loggers': {
-        'firebase': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': True,
+    "loggers": {
+        "firebase": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+            "propagate": True,
         },
     },
 }
 
-BASE_URL = "http://localhost:8000" 
+BASE_URL = "http://localhost:8000"
 FRONTEND_URL = "http://localhost:3000"
 
-#khalti settings
+# khalti settings
 KHALTI_PUBLIC_KEY = os.getenv("KHALTI_PUBLIC_KEY", "test_public_key")
 KHALTI_SECRET_KEY = os.getenv("KHALTI_SECRET_KEY", "test_secret_key")
-KHALTI_VERIFY_URL = os.getenv("KHALTI_VERIFY_URL", "https://test-pay.khalti.com/api/v2/payment/verify/")
+KHALTI_VERIFY_URL = os.getenv(
+    "KHALTI_VERIFY_URL", "https://test-pay.khalti.com/api/v2/payment/verify/"
+)
+
+# # Email settings for Mailtrap (for development)
+# EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+# EMAIL_HOST = os.getenv("EMAIL_HOST")
+# EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+# EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+# EMAIL_PORT = int(os.getenv("EMAIL_PORT", 2525))  # convert to int!
+# EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ["true", "1"]
+# DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
+
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+EMAIL_HOST =os.getenv("EMAIL_HOST")  # or your provider like 'smtp.mailgun.org'
+EMAIL_PORT = int(os.getenv("EMAIL_PORT"))  # use 465 for SSL, 587 for TLS
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True" # or EMAIL_USE_SSL = True, not both
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
