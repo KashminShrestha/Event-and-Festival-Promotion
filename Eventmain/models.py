@@ -154,9 +154,14 @@ class Notification(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
 class QRCode(models.Model):
-    booking_id = models.ForeignKey('Booking', on_delete=models.CASCADE, db_column='booking_id')
-    qr_code_path = models.TextField()
+    booking = models.OneToOneField("Booking", on_delete=models.CASCADE, db_column='booking_id')
+    qr_code = models.TextField()
+
+
+    def __str__(self):
+        return f"QRCode for Booking {self.booking.id}"
 
 class EventAnalytics(models.Model):
     event = models.ForeignKey('Event', on_delete=models.CASCADE)

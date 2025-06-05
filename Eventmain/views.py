@@ -5,10 +5,11 @@ import qrcode
 from django.core.files.base import ContentFile
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.core.files.storage import default_storage
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.conf import settings
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied
 from .models import Event, Booking, QRCode
@@ -358,6 +359,8 @@ class BookingViewSet(viewsets.ModelViewSet):
         payment_status = request.GET.get("status")
         pidx = request.GET.get("pidx")
         amount = request.GET.get("amount")
+        transaction_id = request.GET.get("transaction_id")
+        tidx = request.GET.get("tidx")
 
         print(
             f"Khalti Callback: booking_id={booking_id}, status={payment_status}, pidx={pidx}"
@@ -397,27 +400,25 @@ class BookingViewSet(viewsets.ModelViewSet):
                 booking.transaction_id = pidx  # Store pidx as transaction_id
                 booking.save()
 
-                # Generate QR code (keep your existing logic)
-                qr = qrcode.make(
-                    f"BookingID:{booking.id};TransactionID:{booking.transaction_id}"
+                # Generate QR Code
+                qr_data = (
+                    f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
                 )
+                qr = qrcode.make(qr_data)
 
                 buffer = io.BytesIO()
                 qr.save(buffer)
                 buffer.seek(0)
-                filename = f"booking_{booking.id}_qr.png"
-                qr_image_file = ContentFile(buffer.read(), filename)
 
-                qr_code_obj = QRCode.objects.create(
-                    booking=booking,
-                    qr_image=qr_image_file,
-                )
+                filename = f"qr_codes/booking_{booking.id}/transaction_id{tidx}"
+                path = default_storage.save(filename, ContentFile(buffer.read()))
 
-                # Notification signals will fire automatically when booking.save() is called!
-                print(
-                    f"âœ… Booking {booking.id} payment confirmed, notifications will be sent"
-                )
+                # Save QR code path
+                QRCode.objects.create(booking=booking, qr_code=path)
 
+                print(f"✅ Booking {booking.id} payment confirmed and QR saved.")
+                
+                
                 # Redirect to success page
                 frontend_url = getattr(
                     settings, "FRONTEND_URL", "http://localhost:3000"
