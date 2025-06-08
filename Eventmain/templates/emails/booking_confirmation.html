@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Event Registration Confirmation</title>
+    <style type="text/css">
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: #333333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+
+        img {
+            -ms-interpolation-mode: bicubic;
+            display: block;
+            border: 0;
+        }
+
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
+
+            .mobile-padding {
+                padding: 10px !important;
+            }
+
+            .ticket-container {
+                padding: 15px !important;
+            }
+
+            .event-details td {
+                display: block;
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+
+<body style="background-color: #f5f5f5; margin: 0; padding: 0">
+    <div style="display: none; max-height: 0; overflow: hidden">
+        Your registration for {{ ticket.event.name }} is confirmed! Here's your
+        ticket.
+    </div>
+
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#f5f5f5" style="padding: 20px 0">
+        <tr>
+            <td align="center" valign="top">
+                <table class="container" width="600" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="
+              border-radius: 8px;
+              overflow: hidden;
+              box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            ">
+                    <tr>
+                        <td align="center" valign="top" bgcolor="#000000" style="padding: 30px 20px">
+                            <h1 style="
+                    color: #ffffff;
+                    margin: 0;
+                    font-size: 28px;
+                    font-weight: 700;
+                  ">
+                                EVENT CONFIRMATION
+                            </h1>
+                            <p style="color: #ffffff; margin: 10px 0 0; font-size: 16px">
+                                Thank you for registering!
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="mobile-padding" align="left" style="padding: 30px 40px 20px">
+                            <p style="font-size: 16px">
+                                Dear
+                                <strong>{{ booking.user.name|default:booking.user.email}}</strong>,
+                            </p>
+                            <p style="margin: 15px 0 0; font-size: 16px">
+                                Your registration for
+                                <strong>{{ ticket.event.name }}</strong> has been confirmed.
+                                Below is your electronic ticket with all the details you'll
+                                need for the event.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="mobile-padding" align="center" style="padding: 0 40px 30px">
+                            <table width="100%" border="0" cellpadding="0" cellspacing="0"
+                                style="border: 2px dashed #000000; border-radius: 8px">
+                                <tr>
+                                    <td class="ticket-container" align="center" bgcolor="#ffffff" style="padding: 25px">
+                                        <table width="100%">
+                                            <tr>
+                                                <td align="left">
+                                                    <h2 style="margin: 0; color: #000000; font-size: 22px">
+                                                        {{ ticket.event.name }}
+                                                    </h2>
+                                                    <p style="
+                                margin: 5px 0 0;
+                                color: #666666;
+                                font-size: 14px;
+                              ">
+                                                        Booking ID #{{ booking.id }}
+                                                    </p>
+                                                    <br/>
+                                                    <p style="
+                                margin: 5px 0 0;
+                                color: #666666;
+                                font-size: 14px;
+                              ">
+                                                        Number of Tickets X Each Ticket Price = {{ quantity }} * {{ ticket.price }}<br/>
+                                                    </p>
+                                                    <br/>
+                                                    <p style="
+                                margin: 5px 0 0;
+                                color: #666666;
+                                font-size: 14px;
+                              ">
+                                                        Total amount = Rs.{{ total_amount }}
+                                                    </p>
+                                                </td>
+                                                <td align="right">
+                                                    <img src="cid:qr_code_cid" alt="QR Code" width="120" height="120" alt="QR Code"
+                                                        style="border: 1px solid #eeeeee; padding: 5px" />
+                                                    {% comment %} <img src="{{ booking.qrcode.qr_code }}" width="120" height="120" alt="QR Code"
+                                                        style="border: 1px solid #eeeeee; padding: 5px" /> {% endcomment %}
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <table width="100%" style="margin: 20px 0">
+                                            <tr>
+                                                <td height="1" bgcolor="#eeeeee"></td>
+                                            </tr>
+                                        </table>
+
+                                        <table class="event-details" width="100%">
+                                            <tr>
+                                                <td width="50%" style="padding-right: 10px">
+                                                    <p style="font-size: 14px; color: #666666">
+                                                        DATE & TIME
+                                                    </p>
+                                                    <p style="
+                                font-size: 16px;
+                                color: #333333;
+                                font-weight: 500;
+                              ">
+                                                        {{ ticket.event.start_date_time }}<br />
+                                                        {{ ticket.event.end_date_time}}
+                                                    </p>
+                                                    <p style="font-size: 14px; color: #666666">
+                                                        LOCATION
+                                                    </p>
+                                                    <p style="
+                                font-size: 16px;
+                                color: #333333;
+                                font-weight: 500;
+                              ">
+                                                        {{ ticket.event.location }}
+                                                    </p>
+                                                </td>
+                                                <td width="50%" style="padding-left: 10px">
+                                                    <p style="font-size: 14px; color: #666666">
+                                                        ATTENDEE
+                                                    </p>
+                                                    <p style="
+                                font-size: 16px;
+                                color: #333333;
+                                font-weight: 500;
+                              ">
+                                                        {{ booking.user.email }}<br />{{ booking.user.name|default:booking.user.email}}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="mobile-padding" align="left" style="padding: 0 40px 30px">
+                            <h3 style="margin: 0 0 15px; font-size: 18px">
+                                Event Description
+                            </h3>
+                            <p style="font-size: 16px; line-height: 1.6">
+                                {{ ticket.event.description }}
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="mobile-padding" align="left" bgcolor="#f9f9f9"
+                            style="padding: 25px 40px; border-top: 1px solid #eeeeee">
+                            <h3 style="margin: 0 0 15px; font-size: 18px">
+                                Important Information
+                            </h3>
+
+                            <p style="font-size: 16px"><strong>What to Bring:</strong></p>
+                            <ul style="padding-left: 20px">
+                                <li>This ticket (printed or on your mobile device)</li>
+                                <li>Valid photo ID matching the name on this ticket</li>
+                            </ul>
+
+                            <p style="font-size: 16px"><strong>Event Policies:</strong></p>
+                            <ul style="padding-left: 20px">
+                                <li>This ticket is non-refundable</li>
+                                <li>Contact the organizer for further questions</li>
+                            </ul>
+
+                            <p style="font-size: 16px; margin-top: 15px">
+                                <strong>Questions?</strong> Contact us at
+                                <a href="mailto:eventif.services@gmail.com"
+                                    style="color: #000000">eventify.services@gmail.com</a>
+                                or call 9842525351.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td align="center" bgcolor="#000000" style="padding: 30px 40px">
+                            <p style="font-size: 14px; color: #ffffff">
+                                &copy; Eventify. All rights reserved.
+                            </p>
+                            <p style="font-size: 12px; color: #aaaaaa">Kathmandu, Nepal</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

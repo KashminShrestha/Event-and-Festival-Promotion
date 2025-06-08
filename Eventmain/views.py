@@ -1,24 +1,30 @@
 from datetime import timezone
 import requests
+import base64
 import io
 import qrcode
-from django.core.files.base import ContentFile
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.core.files.storage import default_storage
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.conf import settings
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied
-from .models import Event
-from .serializers import EventSerializer
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from .models import Event, Booking, QRCode
+from .serializers import EventSerializer, BookingSerializer
 from .models import *
 from .serializers import *
 from .models import *
 from .serializers import *
 from rest_framework import status, permissions
 from .models import AuditLog
+from django.core.mail import EmailMultiAlternatives
+from email.mime.image import MIMEImage
+
 
 
 class OrganizerViewSet(viewsets.ModelViewSet):
@@ -118,6 +124,39 @@ class EventViewSet(viewsets.ModelViewSet):
 
         return super().destroy(request, *args, **kwargs)
 
+    # Multilingual handling methods
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = self._apply_language(serializer.data, request)
+        return Response(data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            data = [self._apply_language(item, request) for item in serializer.data]
+            return self.get_paginated_response(data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        data = [self._apply_language(item, request) for item in serializer.data]
+        return Response(data)
+
+    def _apply_language(self, data, request):
+        """Helper method to handle language switching"""
+        lang = request.headers.get("Accept-Language", "en").lower()
+        if lang == "ne":
+            # Preserve original values while overriding display fields
+            data["name_display"] = data.get("name_nep") or data["name"]
+            data["description_display"] = (
+                data.get("description_nep") or data["description"]
+            )
+        else:
+            data["name_display"] = data["name"]
+            data["description_display"] = data["description"]
+        return data
+
     @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
     def approve(self, request, pk=None):
         event = self.get_object()
@@ -190,175 +229,317 @@ class TicketViewSet(viewsets.ModelViewSet):
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["post"])
+    def create_with_payment(self, request):
+        """
+        Create booking and initiate Khalti E-Payment.
+        This replaces the widget-based approach.
+        """
+        try:
+            # Extract booking data
+            print("Khalti Secret Key:", settings.KHALTI_SECRET_KEY)
+            ticket_id = request.data.get("ticket_id")
+            quantity = request.data.get("quantity")
+
+            if not ticket_id or not quantity:
+                return Response(
+                    {"error": "ticket_id and quantity are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Get ticket and calculate total
+            from .models import Ticket
+
+            ticket = Ticket.objects.get(id=ticket_id)
+            total_amount = ticket.price * quantity
+
+            # Count how many tickets are already booked (only for 'paid' bookings)
+            booked_quantity = (
+                Booking.objects.filter(ticket=ticket, status="paid").aggregate(
+                    total=models.Sum("quantity")
+                )["total"]
+                or 0
+            )
+
+            remaining_quantity = ticket.quantity - booked_quantity
+
+            # Ensure requested quantity does not exceed remaining
+            if quantity > remaining_quantity:
+                return Response(
+                    {"error": f"Only {remaining_quantity} tickets available."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Create booking (status = pending until payment)
+            booking = Booking.objects.create(
+                user=request.user,
+                ticket=ticket,
+                quantity=quantity,
+                total_amount=total_amount,
+                status="pending",  # Will change to 'paid' after callback
+                payment_method="khalti",
+            )
+
+            # Prepare Khalti E-Payment payload
+            payload = {
+                "return_url": f"{settings.BASE_URL}/api/bookings/khalti_callback/",
+                "website_url": settings.BASE_URL,
+                "amount": int(total_amount * 100),  # Convert Rs to paisa
+                "purchase_order_id": str(booking.id),
+                "purchase_order_name": f"Ticket for {ticket.event.name}",
+                "customer_info": {
+                    "name": request.user.get_full_name() or request.user.username,
+                    "email": request.user.email,
+                },
+                "amount_breakdown": [
+                    {
+                        "label": f"{ticket.name} x {quantity}",
+                        "amount": int(total_amount * 100),
+                    }
+                ],
+                "product_details": [
+                    {
+                        "identity": str(ticket.id),
+                        "name": ticket.name,
+                        "total_price": int(total_amount * 100),
+                        "quantity": quantity,
+                        "unit_price": int(ticket.price * 100),
+                    }
+                ],
+            }
+
+            headers = {
+                "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
+                "Content-Type": "application/json",
+            }
+
+            # Initiate payment with Khalti
+            response = requests.post(
+                "https://a.khalti.com/api/v2/epayment/initiate/",
+                headers=headers,
+                json=payload,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                payment_url = data.get("payment_url")
+
+                if payment_url:
+                    return Response(
+                        {
+                            "booking_id": booking.id,
+                            "payment_url": payment_url,
+                            "message": "Booking created. Please complete payment.",
+                        }
+                    )
+                else:
+                    booking.delete()  # Clean up on failure
+                    return Response(
+                        {"error": "Payment URL not received from Khalti"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+            else:
+                booking.delete()  # Clean up on failure
+                return Response(
+                    {"error": "Failed to initiate payment", "details": response.text},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=["get"])
+    def khalti_callback(self, request):
+        """
+        Handle Khalti's payment callback after user completes payment.
+        This replaces manual token verification.
+        """
+        print("Khalti Callback Received")  # debugging
+        # Extract callback parameters
+        booking_id = request.GET.get("purchase_order_id")
+        payment_status = request.GET.get("status")
+        pidx = request.GET.get("pidx")
+        amount = request.GET.get("amount")
+        tidx = request.GET.get("tidx")
+
+        print(
+            f"Khalti Callback: booking_id={booking_id}, status={payment_status}, pidx={pidx}"
+        )
+
+        # Validate callback parameters
+        if not booking_id or payment_status != "Completed" or not pidx:
+            return Response(
+                {"error": "Invalid callback parameters"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Verify payment with Khalti
+            verification_response = requests.post(
+                "https://dev.khalti.com/api/v2/epayment/lookup/",
+                json={"pidx": pidx},
+                headers={
+                    "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
+                    "Content-Type": "application/json",
+                },
+            )
+
+            if verification_response.status_code == 200:
+                verification_data = verification_response.json()
+
+                # Check if payment is actually not completed
+                if verification_data.get("status") != "Completed":
+                    return Response(
+                        {"error": "Payment verification failed"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Update booking status
+                booking = Booking.objects.get(id=booking_id)
+                booking.status = "paid"
+                booking.transaction_id = pidx  # Store pidx as transaction_id
+                booking.save()
+
+                # Generate QR Code
+                # qr_data = f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
+                # qr = qrcode.make(qr_data)
+                qr_data = f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
+                qr = qrcode.make(qr_data)
+
+                buffer = io.BytesIO()
+                qr.save(buffer)
+                buffer.seek(0)
+
+                # Encode image to base64
+                # qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                # qr_data_uri = f"data:image/png;base64,{qr_base64}"
+                # Save only the QR data (not image) 
+                QRCode.objects.create(booking=booking, qr_code=qr_data)
+
+                # Save base64 QR code to DB
+                # QRCode.objects.create(booking=booking, qr_code=qr_data_uri)
+
+                print(f"✅ Booking {booking.id} payment confirmed and QR saved.")
+
+                # QR code already in buffer
+                qr_image_data = buffer.getvalue()
+
+                # Email content
+                subject = f"Your Booking Confirmation - {booking.ticket.event.name}"
+                to_email = booking.user.email
+
+                # Render optional HTML template
+                html_message = render_to_string(
+                    "emails/booking_confirmation.html",
+                    {
+                        "user": booking.user,
+                        "booking": booking,
+                        "ticket": booking.ticket,
+                        "quantity": booking.quantity,
+                        "total_amount": booking.total_amount,
+                        "qr_image": "qr_data_uri", 
+                    },
+                )
+
+                # Create email with HTML content
+                # email = EmailMessage(
+                #     subject,
+                #     html_message,
+                #     settings.DEFAULT_FROM_EMAIL,
+                #     [to_email],
+                # )
+                email = EmailMultiAlternatives(subject, "", settings.DEFAULT_FROM_EMAIL, [to_email])
+                email.content_subtype = "html"
+
+                # Attach QR code image
+                # email.attach("booking_qr.png", qr_image_data, "image/png")
+                # email.attach("booking_qr.png", qr_image_data, "image/png")
+                
+                email.attach_alternative(html_message, "text/html")
+
+                # Embed image using MIMEImage
+                qr_image = MIMEImage(qr_image_data)
+                qr_image.add_header("Content-ID", "<qr_code_cid>")
+                email.attach(qr_image)
+                # email.send()
+
+                # Send email
+                try:
+                    email.send()
+                    print(f"✅ Email with QR code sent to {to_email}")
+                except Exception as e:
+                    print(f"❌ Failed to send email: {e}")
+
+                # Redirect to success page
+                frontend_url = getattr(
+                    settings, "FRONTEND_URL", "http://localhost:3000"
+                )
+                return redirect(
+                    f"{frontend_url}/booking-success?booking_id={booking.id}"
+                )
+
+            else:
+                return Response(
+                    {
+                        "error": "Payment verification failed",
+                        "details": verification_response.text,
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except Booking.DoesNotExist:
+            return Response(
+                {"error": "Booking not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
-    def verify_payment(self, request, pk=None):
+    def refund_booking(self, request, pk=None):
+        """
+        Refund a booking (keep your existing logic but update for E-Payment)
+        """
         booking = self.get_object()
-        token = request.data.get("token")
-        amount = request.data.get("amount")
 
-        print(f"Received token: {token}, amount: {amount}")  # Debug print
-
-        if not token or not amount:
+        if booking.status != "paid":
             return Response(
-                {"detail": "Token and amount required."},
+                {"error": "Only paid bookings can be refunded"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        verify_url = getattr(settings, "KHALTI_VERIFY_URL", None)
-        if not verify_url:
+        try:
+            # For E-Payment, use the refund endpoint (if available)
+            # Note: You may need to check Khalti's E-Payment refund documentation
+            refund_url = "https://test-pay.khalti.com/api/v2/epayment/refund/"
+            headers = {"Authorization": f"key {settings.KHALTI_SECRET_KEY}"}
+            payload = {
+                "pidx": booking.transaction_id,  # Use pidx for E-Payment refunds
+                "amount": int(booking.total_amount * 100),  # Amount in paisa
+            }
+
+            response = requests.post(refund_url, headers=headers, json=payload)
+
+            if response.status_code == 200:
+                booking.status = "refunded"
+                booking.save()  # This will trigger refund notification signals
+
+                return Response({"message": "Booking refunded successfully"})
+            else:
+                return Response(
+                    {"error": "Refund failed", "details": response.text},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except Exception as e:
             return Response(
-                {"detail": "Khalti verify URL not configured."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {"token": token, "amount": int(amount)}
-
-        resp = requests.post(verify_url, headers=headers, json=payload)
-        data = resp.json()
-
-        print("Khalti response:", data)  # Debug print
-
-        # Khalti returns status "OK" on success in 'status' field
-        if resp.status_code == 200 and data.get("status") == "OK":
-            booking.status = "paid"
-            # Prefer 'idx' from root or inside 'details'
-            booking.transaction_id = data.get("idx") or data.get("details", {}).get(
-                "idx"
-            )
-            booking.save()
-
-            # Generate QR code
-            qr = qrcode.make(
-                f"BookingID:{booking.id};TransactionID:{booking.transaction_id}"
-            )
-
-            # Save QR code image to QRCode model
-            buffer = io.BytesIO()
-            qr.save(buffer)
-            buffer.seek(0)
-            filename = f"booking_{booking.id}_qr.png"
-            qr_image_file = ContentFile(buffer.read(), filename)
-
-            qr_code_obj = QRCode.objects.create(
-                booking=booking,
-                qr_image=qr_image_file,
-            )
-
-            # TODO: Send notification/email if needed
-
-            return Response({"detail": "Payment verified and booking confirmed."})
-
-        else:
-            return Response(
-                {"detail": "Payment verification failed.", "error": data},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    @staticmethod
-    def refund_booking(booking, amount=None, mobile=None):
-        refund_url = f"https://khalti.com/api/merchant-transaction/{booking.transaction_id}/refund/"
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {}
-
-        if mobile:
-            payload["mobile"] = mobile
-        if amount:
-            payload["amount"] = int(amount)  # amount in paisa
-
-        response = requests.post(refund_url, headers=headers, json=payload)
-        if response.status_code == 200:
-            booking.status = "refunded"
-            booking.save()
-            return True
-        return False
-
-    permission_classes = [IsAuthenticated]
-
-    @action(detail=True, methods=["post"])
-    def verify_payment(self, request, pk=None):
-        booking = self.get_object()
-        token = request.data.get("token")
-        amount = request.data.get("amount")
-
-        print(f"Received token: {token}, amount: {amount}")  # Debug print
-
-        if not token or not amount:
-            return Response(
-                {"detail": "Token and amount required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        verify_url = getattr(settings, "KHALTI_VERIFY_URL", None)
-        if not verify_url:
-            return Response(
-                {"detail": "Khalti verify URL not configured."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {"token": token, "amount": int(amount)}
-
-        resp = requests.post(verify_url, headers=headers, json=payload)
-        data = resp.json()
-
-        print("Khalti response:", data)  # Debug print
-
-        # Khalti returns status "OK" on success in 'status' field
-        if resp.status_code == 200 and data.get("status") == "OK":
-            booking.status = "paid"
-            # Prefer 'idx' from root or inside 'details'
-            booking.transaction_id = data.get("idx") or data.get("details", {}).get(
-                "idx"
-            )
-            booking.save()
-
-            # Generate QR code
-            qr = qrcode.make(
-                f"BookingID:{booking.id};TransactionID:{booking.transaction_id}"
-            )
-
-            # Save QR code image to QRCode model
-            buffer = io.BytesIO()
-            qr.save(buffer)
-            buffer.seek(0)
-            filename = f"booking_{booking.id}_qr.png"
-            qr_image_file = ContentFile(buffer.read(), filename)
-
-            qr_code_obj = QRCode.objects.create(
-                booking=booking,
-                qr_image=qr_image_file,
-            )
-
-            # TODO: Send notification/email if needed
-
-            return Response({"detail": "Payment verified and booking confirmed."})
-
-        else:
-            return Response(
-                {"detail": "Payment verification failed.", "error": data},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    @staticmethod
-    def refund_booking(booking, amount=None, mobile=None):
-        refund_url = f"https://khalti.com/api/merchant-transaction/{booking.transaction_id}/refund/"
-        headers = {"Authorization": f"Key {settings.KHALTI_SECRET_KEY}"}
-        payload = {}
-
-        if mobile:
-            payload["mobile"] = mobile
-        if amount:
-            payload["amount"] = int(amount)  # amount in paisa
-
-        response = requests.post(refund_url, headers=headers, json=payload)
-        if response.status_code == 200:
-            booking.status = "refunded"
-            booking.save()
-            return True
-        return False
 
 
 class MediaViewSet(viewsets.ModelViewSet):
@@ -366,6 +547,32 @@ class MediaViewSet(viewsets.ModelViewSet):
     serializer_class = MediaSerializer
     parser_classes = [MultiPartParser, FormParser]  # Enables file upload
     permission_classes = [IsAuthenticated]
+
+    # Multilingual handling methods
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = self._apply_language(serializer.data, request)
+        return Response(data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            data = [self._apply_language(item, request) for item in serializer.data]
+            return self.get_paginated_response(data)
+        serializer = self.get_serializer(queryset, many=True)
+        data = [self._apply_language(item, request) for item in serializer.data]
+        return Response(data)
+
+    def _apply_language(self, data, request):
+        lang = request.headers.get("Accept-Language", "en").lower()
+        if lang == "ne":
+            data["caption_display"] = data.get("caption_nep") or data.get("caption_eng")
+        else:
+            data["caption_display"] = data.get("caption_eng") or data.get("caption_nep")
+        return data
 
 
 class AuditLogViewSet(viewsets.ModelViewSet):

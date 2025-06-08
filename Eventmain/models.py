@@ -45,11 +45,13 @@ class Event(models.Model):
 
     organizer = models.ForeignKey(Organizer, on_delete=models.CASCADE, related_name='events')
     name = models.CharField(max_length=255)
+    name_nep = models.CharField(max_length=255, blank=True, null=True) 
     description = models.TextField()
+    description_nep = models.TextField(blank=True, null=True)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     location = models.CharField(max_length=255)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
+    start_date_time = models.DateTimeField()
+    end_date_time = models.DateTimeField()
     capacity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
@@ -152,9 +154,14 @@ class Notification(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
 class QRCode(models.Model):
-    booking_id = models.ForeignKey('Booking', on_delete=models.CASCADE, db_column='booking_id')
-    qr_code_path = models.TextField()
+    booking = models.OneToOneField("Booking", on_delete=models.CASCADE, db_column='booking_id')
+    qr_code = models.TextField()
+
+
+    def __str__(self):
+        return f"QRCode for Booking {self.booking.id}"
 
 class EventAnalytics(models.Model):
     event = models.ForeignKey('Event', on_delete=models.CASCADE)
