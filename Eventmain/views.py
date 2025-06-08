@@ -22,6 +22,9 @@ from .models import *
 from .serializers import *
 from rest_framework import status, permissions
 from .models import AuditLog
+from django.core.mail import EmailMultiAlternatives
+from email.mime.image import MIMEImage
+
 
 
 class OrganizerViewSet(viewsets.ModelViewSet):
@@ -402,6 +405,8 @@ class BookingViewSet(viewsets.ModelViewSet):
                 booking.save()
 
                 # Generate QR Code
+                # qr_data = f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
+                # qr = qrcode.make(qr_data)
                 qr_data = f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
                 qr = qrcode.make(qr_data)
 
@@ -410,11 +415,13 @@ class BookingViewSet(viewsets.ModelViewSet):
                 buffer.seek(0)
 
                 # Encode image to base64
-                qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-                qr_data_uri = f"data:image/png;base64,{qr_base64}"
+                # qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                # qr_data_uri = f"data:image/png;base64,{qr_base64}"
+                # Save only the QR data (not image) 
+                QRCode.objects.create(booking=booking, qr_code=qr_data)
 
                 # Save base64 QR code to DB
-                QRCode.objects.create(booking=booking, qr_code=qr_data_uri)
+                # QRCode.objects.create(booking=booking, qr_code=qr_data_uri)
 
                 print(f"✅ Booking {booking.id} payment confirmed and QR saved.")
 
@@ -434,21 +441,31 @@ class BookingViewSet(viewsets.ModelViewSet):
                         "ticket": booking.ticket,
                         "quantity": booking.quantity,
                         "total_amount": booking.total_amount,
-                        "qr_image": qr_data_uri, 
+                        "qr_image": "qr_data_uri", 
                     },
                 )
 
                 # Create email with HTML content
-                email = EmailMessage(
-                    subject,
-                    html_message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [to_email],
-                )
+                # email = EmailMessage(
+                #     subject,
+                #     html_message,
+                #     settings.DEFAULT_FROM_EMAIL,
+                #     [to_email],
+                # )
+                email = EmailMultiAlternatives(subject, "", settings.DEFAULT_FROM_EMAIL, [to_email])
                 email.content_subtype = "html"
 
                 # Attach QR code image
-                email.attach("booking_qr.png", qr_image_data, "image/png")
+                # email.attach("booking_qr.png", qr_image_data, "image/png")
+                # email.attach("booking_qr.png", qr_image_data, "image/png")
+                
+                email.attach_alternative(html_message, "text/html")
+
+                # Embed image using MIMEImage
+                qr_image = MIMEImage(qr_image_data)
+                qr_image.add_header("Content-ID", "<qr_code_cid>")
+                email.attach(qr_image)
+                # email.send()
 
                 # Send email
                 try:
