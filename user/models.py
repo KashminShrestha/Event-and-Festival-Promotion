@@ -1,8 +1,6 @@
 from django.db import models
-
-# Create your models here.
-from django.db import models
-from django.contrib.auth.models import  Group, AbstractUser, BaseUserManager
+from django.contrib.auth.models import Group, AbstractUser, BaseUserManager
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -27,20 +25,29 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-# Create your models here.
 class User(AbstractUser):
-   
     LANGUAGE_CHOICES = (
-        ('en', 'English'),
-        ('np', 'Nepali'),
+        ("en", "English"),
+        ("np", "Nepali"),
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     email = models.EmailField(unique=True)
-    role = models.ForeignKey(Group, related_name="user_role", blank=True, null=True, on_delete=models.SET_NULL)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='en')
+    role = models.ForeignKey(
+        Group,
+        related_name="user_role",
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="en")
     created_at = models.DateTimeField(auto_now_add=True)
 
-   
+    # New fields for verification
+    is_verified = models.BooleanField(default=False)
+    otp_code = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
+    email_verification_token = models.CharField(max_length=64, blank=True, null=True)
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
     objects = UserManager()
@@ -49,5 +56,14 @@ class User(AbstractUser):
         if not self.username:
             self.username = self.email
         super().save(*args, **kwargs)
+
     def __str__(self):
         return self.email
+
+    def otp_is_valid(self, expiry_minutes=10):
+        """Check if the OTP is still valid."""
+        if self.otp_created_at:
+            return timezone.now() <= self.otp_created_at + timezone.timedelta(
+                minutes=expiry_minutes
+            )
+        return False
