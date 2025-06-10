@@ -25,8 +25,16 @@ class CustomUserViewSet(UserViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # Extract phone fields explicitly
+        phone_number = serializer.validated_data.get("phone_number")
+        country_code = serializer.validated_data.get("country_code", "+977")
+
+        # Save user with phone data and is_verified=False
         user = serializer.save(
-            is_verified=False
+            is_verified=False,
+            phone_number=phone_number,
+            country_code=country_code,
         )  # Ensure user is not verified at creation
 
         # Generate OTP and email verification token

@@ -516,7 +516,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         try:
             # For E-Payment, use the refund endpoint (if available)
             # Note: You may need to check Khalti's E-Payment refund documentation
-            refund_url = "https://test-pay.khalti.com/api/v2/epayment/refund/"
+            refund_url = "https://dev.khalti.com/api/v2/epayment/refund/"
             headers = {"Authorization": f"key {settings.KHALTI_SECRET_KEY}"}
             payload = {
                 "pidx": booking.transaction_id,  # Use pidx for E-Payment refunds

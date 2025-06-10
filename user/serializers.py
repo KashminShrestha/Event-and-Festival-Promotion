@@ -11,7 +11,14 @@ from rest_framework.exceptions import ValidationError
 class CustomUserCreateSerializer(UserCreateSerializer):
     class Meta(UserCreateSerializer.Meta):
         model = get_user_model()
-        fields = ("id", "name", "email", "password")
+        fields = (
+            "id",
+            "name",
+            "email",
+            "password",
+            "phone_number",
+            "country_code",
+        )
         extra_kwargs = {"password": {"write_only": True}}
 
 

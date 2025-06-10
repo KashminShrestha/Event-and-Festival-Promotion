@@ -13,6 +13,8 @@ class CustomUserAdmin(UserAdmin):
         "language",
         "is_verified",
         'otp_code',
+        'country_code',
+        'phone_number',
         'email_verification_token',
     )
     list_filter = ("is_staff", "is_active", "language")
