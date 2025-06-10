@@ -12,7 +12,7 @@ from django.conf import settings
 from django.shortcuts import redirect, render
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied
-from django.core.mail import EmailMessage
+# from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from .models import Event, Booking, QRCode
 from .serializers import EventSerializer, BookingSerializer

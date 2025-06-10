@@ -11,6 +11,9 @@ from datetime import timedelta
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+
 from .serializers import CustomUserCreateSerializer
 from djoser.views import UserViewSet
 from .models import User
@@ -59,13 +62,34 @@ class CustomUserViewSet(UserViewSet):
         verification_url = request.build_absolute_uri(
             reverse("verify-email", kwargs={"token": token})
         )
-        send_mail(
+        # send_mail(
+        #     subject="Verify your email",
+        #     message=f"Your OTP code is: {otp}. It expires in 10 minutes or Click the link to verify your email: {verification_url}",
+        #     from_email="noreply@example.com",
+        #     recipient_list=[user.email],
+        #     fail_silently=False,
+        # )
+
+        context = {
+            "otp": otp,
+            "verification_url": verification_url,
+        }
+        html_message = render_to_string("user/verification_email.html", context)
+        plain_message = f"Your OTP code is: {otp}. It expires in 10 minutes. Or visit {verification_url}"
+
+        email = EmailMultiAlternatives(
             subject="Verify your email",
-            message=f"Your OTP code is: {otp}. It expires in 10 minutes or Click the link to verify your email: {verification_url}",
+            body=plain_message,  # Plain text version
             from_email="noreply@example.com",
-            recipient_list=[user.email],
-            fail_silently=False,
+            to=[user.email],
         )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+            email.send()
+            print(f"✅ HTML Email with verification link sent to {user.email}")
+        except Exception as e:
+            print(f"❌ Failed to send email: {e}")
 
         headers = self.get_success_headers(serializer.data)
         return Response(
