@@ -44,9 +44,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    #third party apps
+    "djoser",
     "rest_framework",
     "django_filters",
     "rest_framework.authtoken",
+    
+    #local apps
     "Eventmain",
     "user",
     "firebase",
