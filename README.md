@@ -1,54 +1,55 @@
-# Event and Festival Promotion Project
+# 🎉 Event and Festival Promotion Project
 
-This repository contains the backend for an Event and Festival Promotion platform built with Django. It supports event management, ticketing, bookings, media uploads, notifications, and integrations with payment gateways like Khalti and Firebase for real-time features.
-
----
-
-## Features
-
-- Organizer and Event management
-- Ticket types and booking system
-- Media uploads linked to events
-- Notifications via SMS, Email, and Push
-- Payment verification with Khalti
-- Firebase integration for realtime database and messaging
-- Audit logs and analytics
+This repository contains the **backend** for an Event and Festival Promotion platform built with **Django**. It supports event management, ticketing, bookings, media uploads, notifications, and integrations with payment gateways like **Khalti** and **Firebase** for real-time features.
 
 ---
 
-## Getting Started
+## 🚀 Features
 
-### Prerequisites
+- Organizer and Event management  
+- Ticket types and booking system  
+- Media uploads linked to events  
+- Notifications via SMS, Email, and Push  
+- Payment verification with **Khalti**  
+- Firebase integration for real-time database and messaging  
+- Audit logs and analytics  
 
-- Python 3.8+
-- Django 5.x
-- A Firebase project with credentials
-- Khalti API keys
-- Mailtrap account for email testing
+---
 
-### Installation
+## 🛠 Getting Started
 
-1. Clone the repository:
+### ✅ Prerequisites
+
+- Python 3.8+  
+- Django 5.x  
+- A Firebase project with credentials  
+- Khalti API keys  
+- Mailtrap account for email testing  
+
+---
+
+## 📦 Installation
+
+```bash
+# Clone the repository
 git clone https://github.com/yourusername/event-festival-promotion.git
 cd event-festival-promotion
 
-
-2. Create and activate a virtual environment:
+# Create and activate a virtual environment
 python -m venv venv
-source venv/bin/activate # On Windows use venv\Scripts\activate
+source venv/bin/activate   # On Windows use: venv\Scripts\activate
 
-
-3. Install dependencies:
+# Install dependencies
 pip install -r requirements.txt
 
+# Configure your environment variables (see below)
 
-4. Configure your environment variables (see example below).
-
-5. Run migrations:
+# Run migrations
 python manage.py migrate
 
-6. Start the development server:
+# Start the development server
 python manage.py runserver
+
 
 
 
