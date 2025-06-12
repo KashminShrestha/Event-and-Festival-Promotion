@@ -96,23 +96,13 @@ DEFAULT_FROM_EMAIL="noreply@example.com"
 
 ---
 
-## Contributing
 
-Contributions are welcome! Please fork the repository and submit a pull request.
 
----
 
-## License
+## Feature 
 
-This project is licensed under the MIT License.
 
----
-
-## Contact
-
-For questions or support, please open an issue or contact the maintainer at your-email@example.com.
-
-[Feature 1]: Organizer and Event Approval Workflow
+[1]: Organizer and Event Approval Workflow
 Overview
 Feature 1 in your codebase is the robust approval workflow for both Organizers and Events. This workflow ensures that only verified organizers and approved events are available on the platform, adding a layer of trust and quality control.
 
