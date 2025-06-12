@@ -1,4 +1,5 @@
 import json
+from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
 from django.utils.crypto import get_random_string
@@ -17,6 +18,7 @@ from django.template.loader import render_to_string
 from .serializers import CustomUserCreateSerializer
 from djoser.views import UserViewSet
 from .models import User
+from django.contrib.auth import get_user_model
 
 
 class CustomUserViewSet(UserViewSet):
@@ -107,19 +109,46 @@ def verify_email(request, token):
     return HttpResponse("Email verified successfully. You can now log in.")
 
 
-@csrf_exempt
-def verify_otp(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
+# @csrf_exempt
+# def verify_otp(request):
+#     if request.method == "POST":
+#         try:
+#             data = json.loads(request.body)
+#         except json.JSONDecodeError:
+#             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-        email = data.get("email")
-        otp = data.get("otp")
+#         email = data.get("email")
+#         otp = data.get("otp")
+
+#         if not email or not otp:
+#             return JsonResponse({"error": "Email and OTP are required"}, status=400)
+
+#         user = User.objects.filter(email=email).first()
+#         if user and user.otp_code == otp and user.otp_is_valid():
+#             user.is_verified = True
+#             user.otp_code = None
+#             user.otp_created_at = None
+#             user.email_verification_token = None
+#             user.save()
+#             return JsonResponse({"message": "OTP verified successfully"}, status=200)
+#         else:
+#             return JsonResponse({"error": "Invalid or expired OTP"}, status=400)
+
+
+#     # For any method other than POST, return 405 Method Not Allowed
+#     return HttpResponseNotAllowed(["POST"])
+
+User = get_user_model()
+class VerifyOTPAPIView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        otp = request.data.get("otp")
 
         if not email or not otp:
-            return JsonResponse({"error": "Email and OTP are required"}, status=400)
+            return Response(
+                {"error": "Email and OTP are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user = User.objects.filter(email=email).first()
         if user and user.otp_code == otp and user.otp_is_valid():
@@ -128,9 +157,10 @@ def verify_otp(request):
             user.otp_created_at = None
             user.email_verification_token = None
             user.save()
-            return JsonResponse({"message": "OTP verified successfully"}, status=200)
+            return Response(
+                {"message": "OTP verified successfully"}, status=status.HTTP_200_OK
+            )
         else:
-            return JsonResponse({"error": "Invalid or expired OTP"}, status=400)
-
-    # For any method other than POST, return 405 Method Not Allowed
-    return HttpResponseNotAllowed(["POST"])
+            return Response(
+                {"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST
+            )
