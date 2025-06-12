@@ -1,19 +1,25 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import *
+# from .views import EventMediaList
 
 router = DefaultRouter()
-router.register(r'organizers', OrganizerViewSet)
-router.register(r'events', EventViewSet)
-router.register(r'tickets', TicketViewSet)
-router.register(r'bookings', BookingViewSet)
-router.register(r'media', MediaViewSet)
-router.register(r'auditlogs', AuditLogViewSet)
-router.register(r'notifications', NotificationViewSet)
-router.register(r'qrcodes', QRCodeViewSet)
-router.register(r'analytics', EventAnalyticsViewSet)
-router.register(r'reviews', EventReviewViewSet)
+router.register(r"organizers", OrganizerViewSet)
+router.register(r"events", EventViewSet)
+router.register(r"tickets", TicketViewSet)
+router.register(r"bookings", BookingViewSet)
+router.register(r"media", MediaViewSet)
+router.register(r"auditlogs", AuditLogViewSet)
+router.register(r"notifications", NotificationViewSet)
+router.register(r"qrcodes", QRCodeViewSet)
+router.register(r"analytics", EventAnalyticsViewSet)
+router.register(r"reviews", EventReviewViewSet)
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path("api/", include(router.urls)),
+    # path(
+    #     "api/events/<int:event_pk>/media/",
+    #     EventMediaList.as_view(),
+    #     name="event-media-list",
+    # ),
 ]

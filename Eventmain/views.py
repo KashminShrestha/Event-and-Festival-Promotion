@@ -12,6 +12,7 @@ from django.conf import settings
 from django.shortcuts import redirect, render
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied
+
 # from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from .models import Event, Booking, QRCode
@@ -25,6 +26,9 @@ from .models import AuditLog
 from django.core.mail import EmailMultiAlternatives
 from email.mime.image import MIMEImage
 
+
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 
 
 class OrganizerViewSet(viewsets.ModelViewSet):
@@ -219,6 +223,13 @@ class EventViewSet(viewsets.ModelViewSet):
             {"detail": f"Event status changed to {new_status}."},
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=True, methods=["get"])
+    def media(self, request, pk=None):
+        event = self.get_object()
+        media_qs = event.media.all()
+        serializer = MediaSerializer(media_qs, many=True)
+        return Response(serializer.data)
 
 
 class TicketViewSet(viewsets.ModelViewSet):
@@ -417,7 +428,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                 # Encode image to base64
                 # qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
                 # qr_data_uri = f"data:image/png;base64,{qr_base64}"
-                # Save only the QR data (not image) 
+                # Save only the QR data (not image)
                 QRCode.objects.create(booking=booking, qr_code=qr_data)
 
                 # Save base64 QR code to DB
@@ -441,7 +452,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                         "ticket": booking.ticket,
                         "quantity": booking.quantity,
                         "total_amount": booking.total_amount,
-                        "qr_image": "qr_data_uri", 
+                        "qr_image": "qr_data_uri",
                     },
                 )
 
@@ -452,13 +463,15 @@ class BookingViewSet(viewsets.ModelViewSet):
                 #     settings.DEFAULT_FROM_EMAIL,
                 #     [to_email],
                 # )
-                email = EmailMultiAlternatives(subject, "", settings.DEFAULT_FROM_EMAIL, [to_email])
+                email = EmailMultiAlternatives(
+                    subject, "", settings.DEFAULT_FROM_EMAIL, [to_email]
+                )
                 email.content_subtype = "html"
 
                 # Attach QR code image
                 # email.attach("booking_qr.png", qr_image_data, "image/png")
                 # email.attach("booking_qr.png", qr_image_data, "image/png")
-                
+
                 email.attach_alternative(html_message, "text/html")
 
                 # Embed image using MIMEImage
@@ -542,6 +555,14 @@ class BookingViewSet(viewsets.ModelViewSet):
             )
 
 
+# class EventMediaList(APIView):
+#     def get(self, request, event_pk):
+#         event = get_object_or_404(Event, pk=event_pk)
+#         media_qs = Media.objects.filter(event=event)
+#         serializer = MediaSerializer(media_qs, many=True)
+#         return Response(serializer.data)
+
+
 class MediaViewSet(viewsets.ModelViewSet):
     queryset = Media.objects.all()
     serializer_class = MediaSerializer
@@ -573,6 +594,12 @@ class MediaViewSet(viewsets.ModelViewSet):
         else:
             data["caption_display"] = data.get("caption_eng") or data.get("caption_nep")
         return data
+    
+    def get_queryset(self):
+        event_id = self.request.query_params.get('event_id')
+        if event_id:
+            return Media.objects.filter(event__id=event_id)
+        return Media.objects.all()
 
 
 class AuditLogViewSet(viewsets.ModelViewSet):
