@@ -12,7 +12,7 @@ class CustomUserAdmin(UserAdmin):
         "is_active",
         "is_verified",
         'otp_code',
-        # 'country_code',
+        'country_code',
         'phone_number',
         # 'email_verification_token',
     )
