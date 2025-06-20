@@ -283,6 +283,14 @@ def approve(self, request, pk=None):
 | Reject Event  | `/api/events/{id}/reject/`        | Admin         | Event status → cancelled      |
 | Change Status | `/api/events/{id}/change_status/` | Admin         | Set event status (valid only) |
 
+> 📒 **Note:** Check bash bellow for JSON request for is_staff approval (!! superuser action !!)
+
+```bash
+{
+  "user_id": {id}
+}
+```
+
 ## 📚 API Summary
 
 ### 🛠️ Admin APIs
