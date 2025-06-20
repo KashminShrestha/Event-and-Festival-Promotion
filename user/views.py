@@ -1,6 +1,5 @@
 import json
 from rest_framework.views import APIView
-from rest_framework import status
 from rest_framework.response import Response
 from django.utils.crypto import get_random_string
 from django.utils import timezone
@@ -11,14 +10,115 @@ from django.http import HttpResponse, HttpResponseNotAllowed
 from datetime import timedelta
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+from rest_framework.permissions import IsAdminUser
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from djoser.views import TokenCreateView
 
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
-from .serializers import CustomUserCreateSerializer
+from .serializers import (
+    AdminUserCreateSerializer,
+    CustomUserCreateSerializer,
+    StaffTokenCreateSerializer,
+)
 from djoser.views import UserViewSet
 from .models import User
 from django.contrib.auth import get_user_model
+
+
+class AdminRegisterAPIView(APIView):
+    permission_classes = []  # Adjust permissions as needed
+
+    def post(self, request):
+        serializer = AdminUserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        # Generate OTP and email verification token
+        otp = f"{get_random_string(length=6, allowed_chars='0123456789')}"
+        token = get_random_string(64)
+
+        user.otp_code = otp
+        user.otp_created_at = timezone.now()
+        user.email_verification_token = token
+        user.save()
+
+        # Build verification URL
+        verification_url = request.build_absolute_uri(
+            reverse("verify-email", kwargs={"token": token})
+        )
+
+        # Prepare email context and content
+        context = {
+            "otp": otp,
+            "verification_url": verification_url,
+            "user": user,
+        }
+        html_message = render_to_string("user/verification_email.html", context)
+        plain_message = f"Your OTP code is: {otp}. It expires in 10 minutes. Or click the link to verify your email: {verification_url}"
+
+        email = EmailMultiAlternatives(
+            subject="Verify your admin email",
+            body=plain_message,
+            from_email="noreply@example.com",
+            to=[user.email],
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+            email.send()
+            print(f"✅ Verification email sent to {user.email}")
+        except Exception as e:
+            print(f"❌ Failed to send email: {e}")
+
+        return Response(
+            {
+                "message": "Admin user registered successfully. Verification email sent.",
+                "user_id": user.id,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class StaffApprovalViewSet(viewsets.ViewSet):
+    permission_classes = [IsAdminUser]
+
+    @action(detail=False, methods=["post"], url_path="approve")
+    def approve(self, request):
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response(
+                {"error": "user_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(id=user_id, is_staff=True)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Staff user not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        # Check if email is verified before approving
+        if not user.is_verified:
+            return Response(
+                {"error": "User's email is not verified. Approval denied."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.is_approved = True
+        user.save()
+
+        return Response(
+            {"message": f"User {user.email} approved successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class StaffLoginAPIView(TokenCreateView):
+    serializer_class = StaffTokenCreateSerializer
 
 
 class CustomUserViewSet(UserViewSet):
@@ -100,7 +200,9 @@ class CustomUserViewSet(UserViewSet):
 
 
 def verify_email(request, token):
-    user = get_object_or_404(User, email_verification_token=token)
+    user = User.objects.filter(email_verification_token=token).first()
+    if not user:
+        return HttpResponse("Invalid or expired verification link.", status=400)
     user.is_verified = True
     user.email_verification_token = None
     user.otp_code = None
@@ -139,6 +241,8 @@ def verify_email(request, token):
 #     return HttpResponseNotAllowed(["POST"])
 
 User = get_user_model()
+
+
 class VerifyOTPAPIView(APIView):
     def post(self, request):
         email = request.data.get("email")

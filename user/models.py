@@ -23,6 +23,11 @@ class UserManager(BaseUserManager):
         # Require phone number only if not superuser
         if not phone_number and not extra_fields.get("is_superuser", False):
             raise ValueError("The Phone number must be set")
+
+        # Set is_approved True for non-staff users by default
+        if extra_fields.get("is_staff", False):
+            extra_fields.setdefault("is_approved", False)
+
         email = self.normalize_email(email)
         user = self.model(
             email=email,
@@ -38,6 +43,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_verified", True)
+        extra_fields.setdefault("is_approved", True)
 
         if extra_fields.get("is_staff") is not True:
             raise ValueError("Superuser must have is_staff=True.")
@@ -72,6 +78,7 @@ class User(AbstractUser):
     )
 
     # New fields for verification
+    is_approved = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     otp_code = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(null=True, blank=True)
