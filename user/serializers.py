@@ -1,28 +1,53 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+
+from user.utils.phonenumber_validation import validate_phone_number
 from .models import *
 from djoser.serializers import UserCreateSerializer
 from djoser.serializers import TokenCreateSerializer
 from rest_framework.exceptions import ValidationError
-
-import phonenumbers
-from phonenumbers.phonenumberutil import NumberParseException
-
+from django.contrib.auth.password_validation import validate_password
 
 # User = get_user_model()
 
 
 class AdminUserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    re_password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ("id", "name", "email", "password", "phone_number", "country_code")
+        fields = (
+            "id",
+            "name",
+            "email",
+            "password",
+            "re_password",
+            "phone_number",
+            "country_code",
+        )
+
+    def validate(self, attrs):
+        password = attrs.get("password")
+        re_password = attrs.get("re_password")
+
+        if password != re_password:
+            raise serializers.ValidationError(
+                {"re_password": "Password fields didn't match."}
+            )
+        validate_password(password)
+
+        return attrs
+
+    def validate_phone_number(self, value):
+        country_code_input = self.initial_data.get("country_code", None)
+        return validate_phone_number(value, country_code_input)
 
     def create(self, validated_data):
         validated_data = validated_data.copy()
         validated_data.pop("email", None)
         validated_data.pop("password", None)
+        validated_data.pop("re_password", None)
         validated_data.pop("phone_number", None)
         validated_data.pop("country_code", None)
 
@@ -69,38 +94,8 @@ class CustomUserCreateSerializer(UserCreateSerializer):
         extra_kwargs = {"password": {"write_only": True}}
 
     def validate_phone_number(self, value):
-
-        User = get_user_model()
         country_code_input = self.initial_data.get("country_code", None)
-
-        try:
-            parsed_number = phonenumbers.parse(value, None)
-
-            if not phonenumbers.is_valid_number(parsed_number):
-                raise serializers.ValidationError("Invalid phone number.")
-
-            # Extract the country code from the parsed phone number (e.g. 977, 1, etc)
-            phone_country_code = f"+{parsed_number.country_code}"
-
-            # Check if input country_code matches the phone number country code
-            if country_code_input and country_code_input != phone_country_code:
-                raise serializers.ValidationError(
-                    f"Country code '{country_code_input}' does not match phone number country code '{phone_country_code}'."
-                )
-
-            normalized_number = phonenumbers.format_number(
-                parsed_number, phonenumbers.PhoneNumberFormat.E164
-            )
-
-            if User.objects.filter(phone_number=normalized_number).exists():
-                raise serializers.ValidationError(
-                    "This phone number is already registered."
-                )
-
-            return normalized_number
-
-        except NumberParseException:
-            raise serializers.ValidationError("Invalid phone number format.")
+        return validate_phone_number(value, country_code_input)
 
 
 class CustomTokenCreateSerializer(TokenCreateSerializer):
@@ -115,7 +110,6 @@ class CustomTokenCreateSerializer(TokenCreateSerializer):
             raise serializers.ValidationError(
                 "Staff user is not approved by superadmin yet."
             )
-
         return data
 
 

@@ -54,12 +54,22 @@ def send_verification_email(request, user, email_subject="Verify your email"):
 def verify_email(request, token):
     try:
         user = User.objects.get(email_verification_token=token)
-        if timezone.now() - user.otp_created_at > timedelta(minutes=10):
-            return HttpResponseBadRequest("Token expired.")
-        user.is_active = True
-        user.email_verification_token = ""
-        user.save()
-        # Optionally, redirect to a success page
-        return render(request, "user/verification_success.html")
     except User.DoesNotExist:
         return HttpResponseBadRequest("Invalid verification link.")
+
+    # Check token expiry
+    if not user.otp_created_at or timezone.now() - user.otp_created_at > timedelta(
+        minutes=10
+    ):
+        return HttpResponseBadRequest("Token expired.")
+
+    # Mark user as verified and active
+    user.is_active = True
+    user.is_verified = True  # if you have this field
+    user.email_verification_token = None
+    user.otp_code = None
+    user.otp_created_at = None
+    user.save()
+
+    # Optionally redirect to login or success page
+    return render(request, "user/verification_success.html")
