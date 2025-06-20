@@ -4,10 +4,10 @@ from .views import (
     AdminRegisterAPIView,
     CustomUserViewSet,
     StaffLoginAPIView,
-    verify_email,
     VerifyOTPAPIView,
     StaffApprovalViewSet,
 )
+from .utils.email_verification import verify_email
 
 router = DefaultRouter()
 router.register(r"staff-approval", StaffApprovalViewSet, basename="staff-approval")

@@ -1,22 +1,12 @@
 import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.utils.crypto import get_random_string
-from django.utils import timezone
-from django.urls import reverse
-from django.core.mail import send_mail
-from django.shortcuts import get_object_or_404
-from django.http import HttpResponse, HttpResponseNotAllowed
-from datetime import timedelta
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import HttpResponse
 from rest_framework.permissions import IsAdminUser
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from djoser.views import TokenCreateView
-
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
+from user.utils.email_verification import send_verification_email
 
 from .serializers import (
     AdminUserCreateSerializer,
@@ -37,41 +27,7 @@ class AdminRegisterAPIView(APIView):
         user = serializer.save()
 
         # Generate OTP and email verification token
-        otp = f"{get_random_string(length=6, allowed_chars='0123456789')}"
-        token = get_random_string(64)
-
-        user.otp_code = otp
-        user.otp_created_at = timezone.now()
-        user.email_verification_token = token
-        user.save()
-
-        # Build verification URL
-        verification_url = request.build_absolute_uri(
-            reverse("verify-email", kwargs={"token": token})
-        )
-
-        # Prepare email context and content
-        context = {
-            "otp": otp,
-            "verification_url": verification_url,
-            "user": user,
-        }
-        html_message = render_to_string("user/verification_email.html", context)
-        plain_message = f"Your OTP code is: {otp}. It expires in 10 minutes. Or click the link to verify your email: {verification_url}"
-
-        email = EmailMultiAlternatives(
-            subject="Verify your admin email",
-            body=plain_message,
-            from_email="noreply@example.com",
-            to=[user.email],
-        )
-        email.attach_alternative(html_message, "text/html")
-
-        try:
-            email.send()
-            print(f"✅ Verification email sent to {user.email}")
-        except Exception as e:
-            print(f"❌ Failed to send email: {e}")
+        send_verification_email(request, user, email_subject="Verify your admin email")
 
         return Response(
             {
@@ -143,102 +99,13 @@ class CustomUserViewSet(UserViewSet):
         )  # Ensure user is not verified at creation
 
         # Generate OTP and email verification token
-        otp = f"{get_random_string(length=6, allowed_chars='0123456789')}"
-        token = get_random_string(64)
-
-        user.otp_code = otp
-        user.otp_created_at = timezone.now()
-        user.email_verification_token = token
-        user.save()
-
-        # # Send OTP email
-        # send_mail(
-        #     subject="Your OTP Code",
-        #     message=f"Your OTP code is: {otp}. It expires in 10 minutes.",
-        #     from_email="no-reply@example.com",
-        #     recipient_list=[user.email],
-        #     fail_silently=False,
-        # )
-
-        # Send email verification link
-        verification_url = request.build_absolute_uri(
-            reverse("verify-email", kwargs={"token": token})
-        )
-        # send_mail(
-        #     subject="Verify your email",
-        #     message=f"Your OTP code is: {otp}. It expires in 10 minutes or Click the link to verify your email: {verification_url}",
-        #     from_email="noreply@example.com",
-        #     recipient_list=[user.email],
-        #     fail_silently=False,
-        # )
-
-        context = {
-            "otp": otp,
-            "verification_url": verification_url,
-        }
-        html_message = render_to_string("user/verification_email.html", context)
-        plain_message = f"Your OTP code is: {otp}. It expires in 10 minutes. Or visit {verification_url}"
-
-        email = EmailMultiAlternatives(
-            subject="Verify your email",
-            body=plain_message,  # Plain text version
-            from_email="noreply@example.com",
-            to=[user.email],
-        )
-        email.attach_alternative(html_message, "text/html")
-
-        try:
-            email.send()
-            print(f"✅ HTML Email with verification link sent to {user.email}")
-        except Exception as e:
-            print(f"❌ Failed to send email: {e}")
+        send_verification_email(request, user)
 
         headers = self.get_success_headers(serializer.data)
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
-
-def verify_email(request, token):
-    user = User.objects.filter(email_verification_token=token).first()
-    if not user:
-        return HttpResponse("Invalid or expired verification link.", status=400)
-    user.is_verified = True
-    user.email_verification_token = None
-    user.otp_code = None
-    user.otp_created_at = None
-    user.save()
-    return HttpResponse("Email verified successfully. You can now log in.")
-
-
-# @csrf_exempt
-# def verify_otp(request):
-#     if request.method == "POST":
-#         try:
-#             data = json.loads(request.body)
-#         except json.JSONDecodeError:
-#             return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-#         email = data.get("email")
-#         otp = data.get("otp")
-
-#         if not email or not otp:
-#             return JsonResponse({"error": "Email and OTP are required"}, status=400)
-
-#         user = User.objects.filter(email=email).first()
-#         if user and user.otp_code == otp and user.otp_is_valid():
-#             user.is_verified = True
-#             user.otp_code = None
-#             user.otp_created_at = None
-#             user.email_verification_token = None
-#             user.save()
-#             return JsonResponse({"message": "OTP verified successfully"}, status=200)
-#         else:
-#             return JsonResponse({"error": "Invalid or expired OTP"}, status=400)
-
-
-#     # For any method other than POST, return 405 Method Not Allowed
-#     return HttpResponseNotAllowed(["POST"])
 
 User = get_user_model()
 
