@@ -276,6 +276,7 @@ def approve(self, request, pk=None):
 
 | Action        | Endpoint                          | Who Can Do It | Effect                        |
 | ------------- | --------------------------------- | ------------- | ----------------------------- |
+| is_approve    | `/user/staff-approval/approve/`   | Super Admin   | is_staff status → approved    |
 | Approve Org   | `/api/organizers/{id}/approve/`   | Admin         | Organizer status → approved   |
 | Reject Org    | `/api/organizers/{id}/reject/`    | Admin         | Organizer status → rejected   |
 | Approve Event | `/api/events/{id}/approve/`       | Admin         | Event status → published      |
@@ -283,6 +284,28 @@ def approve(self, request, pk=None):
 | Change Status | `/api/events/{id}/change_status/` | Admin         | Set event status (valid only) |
 
 ## 📚 API Summary
+
+### 🛠️ Admin APIs
+
+| Action                            | Method | Endpoint                           |
+| --------------------------------- | ------ | ---------------------------------- |
+| View All Analytics                | GET    | `/api/analytics/`                  |
+| View Analytics for Specific Event | GET    | `/api/analytics/?event={event_id}` |
+| View Audit Logs                   | GET    | `/api/auditlogs/`                  |
+
+### 🔐 Authentication APIs
+
+| Action             | Method | Endpoint                |
+| ------------------ | ------ | ----------------------- |
+| Admin Registration | POST   | `/user/admin/register/` |
+| Admin Login        | POST   | `/user/admin/login/`    |
+| OTP Verification   | POST   | `/user/verify-otp/`     |
+| User Registration  | POST   | `/user/auth/users/`     |
+| User Login         | POST   | `/auth/token/login/`    |
+| OTP Verification   | POST   | `/user/verify-otp/`     |
+
+> 📒 **Note:** OTP Verification
+> Same for both Admin and User
 
 ### 🧑‍💼 Organizer APIs
 
@@ -304,30 +327,6 @@ def approve(self, request, pk=None):
 | Approve Event       | POST   | `/api/events/{id}/approve/`       |
 | Reject Event        | POST   | `/api/events/{id}/reject/`        |
 | Change Event Status | POST   | `/api/events/{id}/change_status/` |
-
-### 📊 Analytics APIs
-
-| Action                | Method | Endpoint                          |
-| --------------------- | ------ | --------------------------------- |
-| Create Analytics      | POST   | `/api/analytics/`                 |
-| List Analytics        | GET    | `/api/analytics/`                 |
-| Increment Event View  | POST   | `/api/analytics/increment-view/`  |
-| Increment Event Click | POST   | `/api/analytics/increment-click/` |
-
-### 🔔 Notification APIs
-
-| Action              | Method | Endpoint              |
-| ------------------- | ------ | --------------------- |
-| Create Notification | POST   | `/api/notifications/` |
-| List Notifications  | GET    | `/api/notifications/` |
-
-### ⭐ Review APIs
-
-| Action                | Method | Endpoint                         |
-| --------------------- | ------ | -------------------------------- |
-| Create Review         | POST   | `/api/reviews/`                  |
-| List Reviews          | GET    | `/api/reviews/`                  |
-| Get Reviews for Event | GET    | `/api/reviews/?event={event_id}` |
 
 ### 🎟️ Ticket APIs
 
@@ -353,18 +352,26 @@ def approve(self, request, pk=None):
 | Get Media by ID    | GET    | `/api/media/{id}/`              |
 | Get Media by Event | GET    | `/api/events/{event_id}/media/` |
 
-### 🔐 Authentication APIs
+### 🔔 Notification APIs
 
-| Action            | Method | Endpoint             |
-| ----------------- | ------ | -------------------- |
-| User Registration | POST   | `/user/auth/users/`  |
-| User Login        | POST   | `/auth/token/login/` |
-| OTP Verification  | POST   | `/user/verify-otp/`  |
+| Action              | Method | Endpoint              |
+| ------------------- | ------ | --------------------- |
+| Create Notification | POST   | `/api/notifications/` |
+| List Notifications  | GET    | `/api/notifications/` |
 
-### 🛠️ Admin APIs
+### ⭐ Review APIs
 
-| Action                            | Method | Endpoint                           |
-| --------------------------------- | ------ | ---------------------------------- |
-| View All Analytics                | GET    | `/api/analytics/`                  |
-| View Analytics for Specific Event | GET    | `/api/analytics/?event={event_id}` |
-| View Audit Logs                   | GET    | `/api/auditlogs/`                  |
+| Action                | Method | Endpoint                         |
+| --------------------- | ------ | -------------------------------- |
+| Create Review         | POST   | `/api/reviews/`                  |
+| List Reviews          | GET    | `/api/reviews/`                  |
+| Get Reviews for Event | GET    | `/api/reviews/?event={event_id}` |
+
+### 📊 Analytics APIs
+
+| Action                | Method | Endpoint                          |
+| --------------------- | ------ | --------------------------------- |
+| Create Analytics      | POST   | `/api/analytics/`                 |
+| List Analytics        | GET    | `/api/analytics/`                 |
+| Increment Event View  | POST   | `/api/analytics/increment-view/`  |
+| Increment Event Click | POST   | `/api/analytics/increment-click/` |
