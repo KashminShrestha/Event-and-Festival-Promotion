@@ -82,14 +82,14 @@
     import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-messaging.js";
 
     const firebaseConfig = {
-        apiKey: "AIzaSyDciLai03Bm3ME9b7oybAUoZWv7RKEUoPk",
-        authDomain: "notification-1622c.firebaseapp.com",
-        databaseURL: "https://notification-1622c-default-rtdb.firebaseio.com",
-        projectId: "notification-1622c",
-        storageBucket: "notification-1622c.firebasestorage.app",
-        messagingSenderId: "217612895243",
-        appId: "1:217612895243:web:16e8261bd5bd7bec70b30e",
-        measurementId: "G-154RB7WSG5"
+        apiKey: "AIzaSyChnGrWhCVkzeyuLZZ52gkIdRpQ7Oa32mc",
+        authDomain: "django-test-98569.firebaseapp.com",
+        databaseURL: "https://django-test-98569-default-rtdb.firebaseio.com",
+        projectId: "django-test-98569",
+        storageBucket: "django-test-98569.firebasestorage.app",
+        messagingSenderId: "587177278681",
+        appId: "1:587177278681:web:aaa97ac6ae228eb3a152c8",
+        measurementId: "G-2SEZT98T6Y"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -113,7 +113,7 @@
             if (permission === "granted") {
                 console.log("Notification permission granted.");
                 getToken(messaging, {
-                    vapidKey: 'BOXzjRUQNlQZVHScIwZlOr7M3A5AyJcd_i7NmfARpw0VpZjAfRm-IVFqLomUrnNH499UlislSk1NloXtIqa9BgA'
+                    vapidKey: 'BNxXEvkNIg8L2Z6_FX3aW3e02HxHCgB5COWaLEdraq7pmBd7WbFXP_GLoacSqT7D7kKyhnGqe1YMVkRVb2Nv0KQ'
                 })
                 .then((currentToken) => {
                     if (currentToken) {

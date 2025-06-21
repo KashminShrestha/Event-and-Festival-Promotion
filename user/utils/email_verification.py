@@ -1,4 +1,5 @@
 from datetime import timedelta
+from django.conf import settings
 from django.http import HttpResponseBadRequest
 from django.shortcuts import render
 from django.utils.crypto import get_random_string
@@ -37,7 +38,7 @@ def send_verification_email(request, user, email_subject="Verify your email"):
     email = EmailMultiAlternatives(
         subject=email_subject,
         body=plain_message,
-        from_email="noreply@example.com",
+        from_email=settings.DEFAULT_FROM_EMAIL,
         to=[user.email],
     )
     email.attach_alternative(html_message, "text/html")

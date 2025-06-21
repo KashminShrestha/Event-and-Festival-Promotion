@@ -44,13 +44,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    #third party apps
+    # third party apps
     "djoser",
     "rest_framework",
     "django_filters",
     "rest_framework.authtoken",
-    
-    #local apps
+    # local apps
     "Eventmain",
     "user",
     "firebase",
@@ -162,13 +161,10 @@ DJOSER = {
         "user_create": "user.serializers.CustomUserCreateSerializer",
         "user": "user.serializers.CustomUserCreateSerializer",
         "current_user": "user.serializers.CustomUserCreateSerializer",
-        'token_create': 'user.serializers.VerifiedUserTokenCreateSerializer',
+        "token_create": "user.serializers.VerifiedUserTokenCreateSerializer",
     },
 }
 
-# Email settings
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # For development
-DEFAULT_FROM_EMAIL = "notifications@eventnepal.com"
 
 # In production, use SMTP
 """
@@ -212,8 +208,9 @@ LOGGING = {
     },
 }
 
-BASE_URL = "http://localhost:8000"
-FRONTEND_URL = "http://localhost:3000"
+BASE_URL = os.getenv("BASE_URL")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+# CORS settings
 
 # khalti settings
 KHALTI_PUBLIC_KEY = os.getenv("KHALTI_PUBLIC_KEY", "test_public_key")
@@ -222,19 +219,23 @@ KHALTI_VERIFY_URL = os.getenv(
     "KHALTI_VERIFY_URL", "https://test-pay.khalti.com/api/v2/payment/verify/"
 )
 
-# # Email settings for Mailtrap (for development)
-# EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
-# EMAIL_HOST = os.getenv("EMAIL_HOST")
-# EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-# EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-# EMAIL_PORT = int(os.getenv("EMAIL_PORT", 2525))  # convert to int!
-# EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ["true", "1"]
-# DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
+# Email SMTP settings for MailHog
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
-EMAIL_HOST =os.getenv("EMAIL_HOST")  # or your provider like 'smtp.mailgun.org'
-EMAIL_PORT = int(os.getenv("EMAIL_PORT"))  # use 465 for SSL, 587 for TLS
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True" # or EMAIL_USE_SSL = True, not both
+EMAIL_HOST = os.getenv("EMAIL_HOST")  # e.g., 'localhost' or 'smtp.mailgun.org'
+EMAIL_PORT = int(os.getenv("EMAIL_PORT"))  # default 1025 for MailHog SMTP
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS").lower() in ("true", "1", "yes")
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL").lower() in ("true", "1", "yes")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
+
+# # Email settings for MailTrap
+
+# EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+# EMAIL_HOST =os.getenv("EMAIL_HOST")  # or your provider like 'smtp.mailgun.org'
+# EMAIL_PORT = int(os.getenv("EMAIL_PORT"))  # use 465 for SSL, 587 for TLS
+# EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True" # or EMAIL_USE_SSL = True, not both
+# EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+# EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+# DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")

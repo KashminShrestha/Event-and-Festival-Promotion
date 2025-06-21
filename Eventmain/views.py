@@ -14,7 +14,6 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied
 
 # from django.core.mail import EmailMessage
-from django.template.loader import render_to_string
 from .models import Event, Booking, QRCode
 from .serializers import EventSerializer, BookingSerializer
 from .models import *
@@ -23,12 +22,6 @@ from .models import *
 from .serializers import *
 from rest_framework import status, permissions
 from .models import AuditLog
-from django.core.mail import EmailMultiAlternatives
-from email.mime.image import MIMEImage
-
-
-from rest_framework.views import APIView
-from django.shortcuts import get_object_or_404
 
 
 class OrganizerViewSet(viewsets.ModelViewSet):
@@ -415,82 +408,8 @@ class BookingViewSet(viewsets.ModelViewSet):
                 booking.transaction_id = pidx  # Store pidx as transaction_id
                 booking.save()
 
-                # Generate QR Code
-                # qr_data = f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
-                # qr = qrcode.make(qr_data)
-                qr_data = f"BookingID:{booking.id};TransactionID:{booking.transaction_id};TIDX:{tidx}"
-                qr = qrcode.make(qr_data)
-
-                buffer = io.BytesIO()
-                qr.save(buffer)
-                buffer.seek(0)
-
-                # Encode image to base64
-                # qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-                # qr_data_uri = f"data:image/png;base64,{qr_base64}"
-                # Save only the QR data (not image)
-                QRCode.objects.create(booking=booking, qr_code=qr_data)
-
-                # Save base64 QR code to DB
-                # QRCode.objects.create(booking=booking, qr_code=qr_data_uri)
-
-                print(f"✅ Booking {booking.id} payment confirmed and QR saved.")
-
-                # QR code already in buffer
-                qr_image_data = buffer.getvalue()
-
-                # Email content
-                subject = f"Your Booking Confirmation - {booking.ticket.event.name}"
-                to_email = booking.user.email
-
-                # Render optional HTML template
-                html_message = render_to_string(
-                    "emails/booking_confirmation.html",
-                    {
-                        "user": booking.user,
-                        "booking": booking,
-                        "ticket": booking.ticket,
-                        "quantity": booking.quantity,
-                        "total_amount": booking.total_amount,
-                        "qr_image": "qr_data_uri",
-                    },
-                )
-
-                # Create email with HTML content
-                # email = EmailMessage(
-                #     subject,
-                #     html_message,
-                #     settings.DEFAULT_FROM_EMAIL,
-                #     [to_email],
-                # )
-                email = EmailMultiAlternatives(
-                    subject, "", settings.DEFAULT_FROM_EMAIL, [to_email]
-                )
-                email.content_subtype = "html"
-
-                # Attach QR code image
-                # email.attach("booking_qr.png", qr_image_data, "image/png")
-                # email.attach("booking_qr.png", qr_image_data, "image/png")
-
-                email.attach_alternative(html_message, "text/html")
-
-                # Embed image using MIMEImage
-                qr_image = MIMEImage(qr_image_data)
-                qr_image.add_header("Content-ID", "<qr_code_cid>")
-                email.attach(qr_image)
-                # email.send()
-
-                # Send email
-                try:
-                    email.send()
-                    print(f"✅ Email with QR code sent to {to_email}")
-                except Exception as e:
-                    print(f"❌ Failed to send email: {e}")
-
-                # Redirect to success page
-                frontend_url = getattr(
-                    settings, "FRONTEND_URL", "http://localhost:3000"
-                )
+                frontend_url = getattr(settings.FRONTEND_URL, "FRONTEND_URL", "http://localhost:3000")
+                
                 return redirect(
                     f"{frontend_url}/booking-success?booking_id={booking.id}"
                 )
@@ -554,15 +473,6 @@ class BookingViewSet(viewsets.ModelViewSet):
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
-# class EventMediaList(APIView):
-#     def get(self, request, event_pk):
-#         event = get_object_or_404(Event, pk=event_pk)
-#         media_qs = Media.objects.filter(event=event)
-#         serializer = MediaSerializer(media_qs, many=True)
-#         return Response(serializer.data)
-
-
 class MediaViewSet(viewsets.ModelViewSet):
     queryset = Media.objects.all()
     serializer_class = MediaSerializer
@@ -594,9 +504,9 @@ class MediaViewSet(viewsets.ModelViewSet):
         else:
             data["caption_display"] = data.get("caption_eng") or data.get("caption_nep")
         return data
-    
+
     def get_queryset(self):
-        event_id = self.request.query_params.get('event_id')
+        event_id = self.request.query_params.get("event_id")
         if event_id:
             return Media.objects.filter(event__id=event_id)
         return Media.objects.all()
