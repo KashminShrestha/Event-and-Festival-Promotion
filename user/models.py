@@ -96,7 +96,7 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
-    def otp_is_valid(self, expiry_minutes=10):
+    def otp_is_valid(self, expiry_minutes=5):
         """Check if the OTP is still valid."""
         if self.otp_created_at:
             return timezone.now() <= self.otp_created_at + timezone.timedelta(

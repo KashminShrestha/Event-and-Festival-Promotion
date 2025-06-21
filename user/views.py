@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from djoser.views import TokenCreateView
-from user.utils.email_verification import send_verification_email
+from user.utils.email_verification import resend_verification_email, send_verification_email
 
 from .serializers import (
     AdminUserCreateSerializer,
@@ -134,4 +134,44 @@ class VerifyOTPAPIView(APIView):
         else:
             return Response(
                 {"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class VerificationResendViewSet(viewsets.ViewSet):
+    """
+    ViewSet to resend verification emails for both Admin and regular users.
+    Use query param `?admin=true` to resend for admin users.
+    """
+
+    permission_classes = []  # Adjust as needed
+
+    @action(detail=False, methods=["post"], url_path="resend-verification")
+    def resend_verification(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response(
+                {"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        is_admin = request.query_params.get("admin", "false").lower() == "true"
+
+        try:
+            if is_admin:
+                # Filter only admin/staff users
+                user = User.objects.get(email=email, is_staff=True)
+            else:
+                # Regular users (non-staff)
+                user = User.objects.get(email=email, is_staff=False)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Admin user not found." if is_admin else "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        result = resend_verification_email(request, user)
+        if result["success"]:
+            return Response({"message": result["message"]}, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {"error": result["message"]}, status=status.HTTP_400_BAD_REQUEST
             )

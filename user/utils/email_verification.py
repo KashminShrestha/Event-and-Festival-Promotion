@@ -74,3 +74,33 @@ def verify_email(request, token):
 
     # Optionally redirect to login or success page
     return render(request, "user/verification_success.html")
+
+
+def resend_verification_email(request, user, cooldown_minutes=5):
+    """
+    Resend verification email to the user if cooldown period has passed.
+    Returns a dict with 'success' status and message or error.
+    """
+    if user.is_verified:
+        return {"success": False, "message": "User is already verified."}
+
+    cooldown_period = timedelta(minutes=cooldown_minutes)
+    if user.otp_created_at and timezone.now() - user.otp_created_at < cooldown_period:
+        wait_time = cooldown_period - (timezone.now() - user.otp_created_at)
+        total_seconds = int(wait_time.total_seconds())
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        return {
+            "success": False,
+            "message": f"Please wait {minutes} minutes and {seconds} seconds before resending verification email.",
+        }
+
+    # Call existing send_verification_email to generate OTP and send email
+    otp, token, verification_url = send_verification_email(request, user)
+
+    return {
+        "success": True,
+        "message": "Verification email resent successfully.",
+        "otp": otp,  # remove in production for security
+        "verification_url": verification_url,
+    }

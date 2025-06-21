@@ -4,6 +4,7 @@ from .views import (
     AdminRegisterAPIView,
     CustomUserViewSet,
     StaffLoginAPIView,
+    VerificationResendViewSet,
     VerifyOTPAPIView,
     StaffApprovalViewSet,
 )
@@ -11,6 +12,7 @@ from .utils.email_verification import verify_email
 
 router = DefaultRouter()
 router.register(r"staff-approval", StaffApprovalViewSet, basename="staff-approval")
+router.register(r'resend-otp', VerificationResendViewSet, basename='resend-otp')
 
 urlpatterns = [
     path("auth/users/", CustomUserViewSet.as_view({"post": "create"}), name="register"),
