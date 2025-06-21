@@ -434,5 +434,5 @@ This project includes several utility functions and modules to assist with commo
 
 ### More Utilities
 
-For detailed documentation on other utilities, see the [`.github/UTILITIES/UTILITIES.md`](.github/UTILITIES/UTILITIES.md) file.  
+For detailed documentation on other utilities, see the [`docs/UTILITIES/UTILITIES.md`](docs/UTILITIES/UTILITIES.md) file.  
 Or explore the source code in the [`user/utils/`](user/utils/) directory.
