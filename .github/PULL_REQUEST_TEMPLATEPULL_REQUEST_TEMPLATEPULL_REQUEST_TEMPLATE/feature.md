@@ -1,5 +1,5 @@
 ---
-name: Feature Request
+name: Feature
 about: Suggest an idea or propose a new feature for the project.
 title: '[FEAT]: '
 labels: enhancement, feature
