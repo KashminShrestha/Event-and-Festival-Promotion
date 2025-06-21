@@ -28,6 +28,19 @@ This repository contains the **backend** for an Event and Festival Promotion pla
 
 ---
 
+## 📚 Documentation Overview
+
+- [⚙️ Setup & Configuration](docs/setup.md)  
+  Instructions for setting up the development environment, environment variables, and deployment.
+
+- [📚 API Endpoints](docs/api_endpoints/README.md)  
+  Detailed documentation of all available API endpoints, request/response formats, and examples.
+  
+- [🧰 Utilities](docs/utilities/UTILITIES.md)  
+  Information about helper functions and utilities such as email verification, OTP handling, and notifications.
+
+---
+
 ## 🚦 Feature : Organizer & Event Approval Workflow
 
 🔍 Overview
@@ -191,14 +204,3 @@ This project includes several utility functions and modules to assist with commo
 - **Email Verification Utilities:** Functions to send and resend verification emails with OTPs for users and admins.
 - **Notification Helpers:** Utilities for sending email, SMS and push notifications.
 - **Payment Verification:** Helper functions to verify payments via Khalti API.
-
-## 📚 Documentation Overview
-
-- [📚 API Endpoints](docs/api_endpoints/README.md)  
-  Detailed documentation of all available API endpoints, request/response formats, and examples.
-
-- [🧰 Utilities](docs/utilities/UTILITIES.md)  
-  Information about helper functions and utilities such as email verification, OTP handling, and notifications.
-
-- [⚙️ Setup & Configuration](docs/setup.md)  
-  Instructions for setting up the development environment, environment variables, and deployment.
