@@ -11,7 +11,7 @@ This folder contains detailed guides, API references, and utility documentation 
 - [API Endpoints](api_endpoints/README.md)  
   Detailed documentation of all available API endpoints, request/response formats, and examples.
 
-- [Utilities](utilities/UTILITIES.md)  
+- [Utilities](UTILITIES/UTILITIES.md)  
   Information about helper functions and utilities such as email verification, OTP handling, and notifications.
 
 - [Setup & Configuration](setup.md)  
