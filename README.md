@@ -340,17 +340,20 @@ def approve(self, request, pk=None):
 
 ### 🔐 Authentication APIs
 
-| Action             | Method | Endpoint                |
-| ------------------ | ------ | ----------------------- |
-| Admin Registration | POST   | `/user/admin/register/` |
-| Admin Login        | POST   | `/user/admin/login/`    |
-| OTP Verification   | POST   | `/user/verify-otp/`     |
-| User Registration  | POST   | `/user/auth/users/`     |
-| User Login         | POST   | `/auth/token/login/`    |
-| OTP Verification   | POST   | `/user/verify-otp/`     |
+| Action             | Method | Endpoint                                           |
+| ------------------ | ------ | -------------------------------------------------- |
+| Admin Registration | POST   | `/user/admin/register/`                            |
+| Admin Login        | POST   | `/user/admin/login/`                               |
+| Admin Resend OTP   | POST   | `/user/resend-otp/resend-verification/`            |
+| OTP Verification   | POST   | `/user/verify-otp/`                                |
+| User Registration  | POST   | `/user/auth/users/`                                |
+| User Login         | POST   | `/auth/token/login/`                               |
+| User Resend OTP    | POST   | `/user/resend-otp/resend-verification/?admin=true` |
+| OTP Verification   | POST   | `/user/verify-otp/`                                |
 
 > 📒 **Note:** OTP Verification
-> Same for both Admin and User
+> Same for both Admin and User and after resending OTP same endpoint can be used for
+> OTP verification
 
 ### 🧑‍💼 Organizer APIs
 
@@ -420,3 +423,16 @@ def approve(self, request, pk=None):
 | List Analytics        | GET    | `/api/analytics/`                 |
 | Increment Event View  | POST   | `/api/analytics/increment-view/`  |
 | Increment Event Click | POST   | `/api/analytics/increment-click/` |
+
+## 🧰 Utilities
+
+This project includes several utility functions and modules to assist with common tasks such as:
+
+- **Email Verification Utilities:** Functions to send and resend verification emails with OTPs for users and admins.
+- **Notification Helpers:** Utilities for sending email, SMS and push notifications.
+- **Payment Verification:** Helper functions to verify payments via Khalti API.
+
+### More Utilities
+
+For detailed documentation on other utilities, see the [`.github/UTILITIES/UTILITIES.md`](.github/UTILITIES/UTILITIES.md) file.  
+Or explore the source code in the [`user/utils/`](user/utils/) directory.
