@@ -36,8 +36,8 @@ This repository contains the **backend** for an Event and Festival Promotion pla
 - [📚 API Endpoints](/docs/api_endpoints/README.md)  
   Detailed documentation of all available API endpoints, request/response formats, and examples.
 
-- [🧰 Utilities](/docs/utilities/UTILITIES.md)  
-  Information about helper functions and utilities such as email verification, OTP handling, and notifications.
+- [🧰 Utilities](/docs/UTILITIES/UTILITIES.md)  
+   Information about helper functions and utilities such as email verification, OTP handling, and notifications.
 
 ---
 
