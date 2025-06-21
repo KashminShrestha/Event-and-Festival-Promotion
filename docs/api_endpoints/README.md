@@ -23,6 +23,11 @@
 > Same for both Admin and User and after resending OTP same endpoint can be used for
 > OTP verification
 
+### ✳️For OTP and other Utilities
+
+For detailed documentation on OTP and other utilities, see the [`/docs/utilities/UTILITIES.md`](/docs/utilities/UTILITIES.md) file.  
+Or explore the source code in the [`/user/utils/`](/user/utils/) directory.
+
 ### 🧑‍💼 Organizer APIs
 
 | Action            | Method | Endpoint                        |
