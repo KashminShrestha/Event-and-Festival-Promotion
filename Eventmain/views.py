@@ -22,11 +22,62 @@ from .models import *
 from .serializers import *
 from rest_framework import status, permissions
 from .models import AuditLog
+from rest_framework.exceptions import ValidationError
 
 
 class OrganizerViewSet(viewsets.ModelViewSet):
     queryset = Organizer.objects.all()
     serializer_class = OrganizerSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action == "list":
+            permission_classes = [IsAdminUser]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def get_queryset(self):
+        user = self.request.user
+        if self.action == "list":
+            # Only admins can list all organizers
+            return Organizer.objects.all()
+        else:
+            # Other actions: restrict to own organizer
+            return Organizer.objects.filter(user=user)
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if Organizer.objects.filter(user=user).exists():
+            raise ValidationError(
+                {
+                    "error": "You already have an organization profile. Multiple organizations per user are not allowed."
+                }
+            )
+        serializer.save(user=user)
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except ValidationError as exc:
+            # Return JSON error response with status 400
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+
+    def perform_update(self, serializer):
+        # Ensure user cannot change the user field to someone else on update
+        if serializer.instance.user != self.request.user:
+            raise PermissionDenied("You cannot change the user of this organizer.")
+        serializer.save()
+
+    def update(self, request, *args, **kwargs):
+        # Optional: extra check on update to prevent user_id spoofing
+        user_id = request.data.get("user_id")
+        if user_id and str(user_id) != str(request.user.id):
+            return Response(
+                {"detail": "You can only update an organizer for yourself."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
     def approve(self, request, pk=None):
@@ -69,6 +120,54 @@ class OrganizerViewSet(viewsets.ModelViewSet):
             target_id=organizer.id,
         )
         return Response({"detail": "Organizer rejected."}, status=status.HTTP_200_OK)
+
+
+# class OrganizerViewSet(viewsets.ModelViewSet):
+#     queryset = Organizer.objects.all()
+#     serializer_class = OrganizerSerializer
+#     permission_classes = [IsAuthenticated]
+
+#     @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+#     def approve(self, request, pk=None):
+#         organizer = self.get_object()
+#         if organizer.status == "approved":
+#             return Response(
+#                 {"detail": "Organizer already approved."},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#         organizer.status = "approved"
+#         organizer.verified_by = request.user
+#         organizer.save()
+#         # Audit log
+#         AuditLog.objects.create(
+#             admin=request.user,
+#             action="Approved organizer",
+#             target_type="Organizer",
+#             target_id=organizer.id,
+#         )
+#         return Response(
+#             {"detail": "Organizer approved successfully."}, status=status.HTTP_200_OK
+#         )
+
+#     @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+#     def reject(self, request, pk=None):
+#         organizer = self.get_object()
+#         if organizer.status == "rejected":
+#             return Response(
+#                 {"detail": "Organizer already rejected."},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#         organizer.status = "rejected"
+#         organizer.verified_by = request.user
+#         organizer.save()
+#         # Audit log
+#         AuditLog.objects.create(
+#             admin=request.user,
+#             action="Rejected organizer",
+#             target_type="Organizer",
+#             target_id=organizer.id,
+#         )
+#         return Response({"detail": "Organizer rejected."}, status=status.HTTP_200_OK)
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -408,8 +507,10 @@ class BookingViewSet(viewsets.ModelViewSet):
                 booking.transaction_id = pidx  # Store pidx as transaction_id
                 booking.save()
 
-                frontend_url = getattr(settings.FRONTEND_URL, "FRONTEND_URL", "http://localhost:3000")
-                
+                frontend_url = getattr(
+                    settings.FRONTEND_URL, "FRONTEND_URL", "http://localhost:3000"
+                )
+
                 return redirect(
                     f"{frontend_url}/booking-success?booking_id={booking.id}"
                 )
@@ -472,6 +573,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class MediaViewSet(viewsets.ModelViewSet):
     queryset = Media.objects.all()

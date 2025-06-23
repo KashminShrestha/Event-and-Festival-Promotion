@@ -7,6 +7,7 @@ class CustomUserAdmin(UserAdmin):
     model = User
     list_display = (
         "email",
+        "id",
         "name",
         "is_staff",
         "is_active",

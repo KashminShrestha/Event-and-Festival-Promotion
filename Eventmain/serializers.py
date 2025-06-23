@@ -1,27 +1,63 @@
 from rest_framework import serializers
+
+from user.models import User
 from .models import *
 from .models import Ticket
 
 
 class OrganizerSerializer(serializers.ModelSerializer):
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source="user",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    user_name = serializers.SerializerMethodField()
+    user_phone_number = serializers.SerializerMethodField()
+
     class Meta:
         model = Organizer
-        fields = "__all__"
+        fields = [
+            "id",
+            "user_id",
+            "user_name",
+            "user_phone_number",
+            "organization_name",
+            "organization_type",
+            "verification_document",
+            "role",
+            "status",
+            "verified_by",
+        ]
+        read_only_fields = ["status", "verified_by"]
 
-    def validate(self, data):
-        # You can optionally add checks here
-        return data
+    def get_user_name(self, obj):
+        if obj.user:
+            return getattr(obj.user, "name", None)
+        return None
+
+    def get_user_phone_number(self, obj):
+        if obj.user:
+            return getattr(obj.user, "phone_number", None)
+        return None
+
+    def validate(self, attrs):
+        # Add any cross-field validation here if needed
+        return attrs
 
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = "__all__"
-        read_only_fields = ['organizer']
+        read_only_fields = ["organizer"]
 
     def validate(self, data):
         if data["start_date_time"] >= data["end_date_time"]:
-            raise serializers.ValidationError("end_date_time must be after start_date_time.")
+            raise serializers.ValidationError(
+                "end_date_time must be after start_date_time."
+            )
         return data
 
 

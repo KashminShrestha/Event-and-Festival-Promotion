@@ -2,11 +2,28 @@ from django.db import models
 from django.conf import settings
 
 
+
 class Organizer(models.Model):
     STATUS_CHOICES = (
         ("pending", "Pending"),
         ("approved", "Approved"),
         ("rejected", "Rejected"),
+    )
+    ORGANIZATION_TYPE_CHOICES = (
+        ("registered_company", "Registered Company"),
+        ("non_profit_company", "Non-profit Company"),
+        ("government_entity", "Government Entity"),
+        ("educational_institution", "Educational Institution"),
+        ("individual", "Individual/Solo Proprietor"),
+    )
+
+    organization_type = models.CharField(
+        max_length=50, choices=ORGANIZATION_TYPE_CHOICES, default="individual"
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+
+    verification_document = models.ImageField(
+        upload_to="organization/verification/document/", null=True, blank=True
     )
 
     user = models.OneToOneField(
@@ -14,8 +31,9 @@ class Organizer(models.Model):
         on_delete=models.CASCADE,
         related_name="organizer_profile",
     )
+
     organization_name = models.CharField(max_length=255)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+
     verified_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -23,6 +41,8 @@ class Organizer(models.Model):
         blank=True,
         related_name="verified_organizers",
     )
+
+    role = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return self.organization_name
