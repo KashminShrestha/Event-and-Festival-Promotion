@@ -2,15 +2,19 @@ import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import HttpResponse
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from djoser.views import TokenCreateView
-from user.utils.email_verification import resend_verification_email, send_verification_email
+from user.utils.email_verification import (
+    resend_verification_email,
+    send_verification_email,
+)
 
 from .serializers import (
     AdminUserCreateSerializer,
     CustomUserCreateSerializer,
+    PasswordChangeSerializer,
     StaffTokenCreateSerializer,
 )
 from djoser.views import UserViewSet
@@ -175,3 +179,21 @@ class VerificationResendViewSet(viewsets.ViewSet):
             return Response(
                 {"error": result["message"]}, status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class PasswordChangeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+
+        return Response(
+            {"message": "Password updated successfully."}, status=status.HTTP_200_OK
+        )

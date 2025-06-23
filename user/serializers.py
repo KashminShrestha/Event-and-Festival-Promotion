@@ -119,3 +119,28 @@ class VerifiedUserTokenCreateSerializer(TokenCreateSerializer):
         if not self.user.is_verified:
             raise ValidationError("Your email is not verified. Please verify to login.")
         return data
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    re_new_password = serializers.CharField(required=True, write_only=True)
+
+    def validate_old_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Old password is not correct.")
+        return value
+
+    def validate(self, attrs):
+        new_password = attrs.get("new_password")
+        re_new_password = attrs.get("re_new_password")
+
+        if new_password != re_new_password:
+            raise serializers.ValidationError(
+                {"re_new_password": "New passwords do not match."}
+            )
+
+        validate_password(new_password)  # Use Django's password validators
+
+        return attrs
