@@ -14,14 +14,15 @@
 | Admin Login        | POST   | `/user/admin/login/`                               |
 | Admin Resend OTP   | POST   | `/user/resend-otp/resend-verification/`            |
 | OTP Verification   | POST   | `/user/verify-otp/`                                |
+| Change Password    | POST   | `/user/auth/change-password/`                      |
 | User Registration  | POST   | `/user/auth/users/`                                |
 | User Login         | POST   | `/auth/token/login/`                               |
 | User Resend OTP    | POST   | `/user/resend-otp/resend-verification/?admin=true` |
 | OTP Verification   | POST   | `/user/verify-otp/`                                |
 
-> 📒 **Note:** OTP Verification
+> 📒 **Note:** OTP Verification and Change password
 > Same for both Admin and User and after resending OTP same endpoint can be used for
-> OTP verification
+> OTP verification and similaryly for change Password
 
 ### ✳️For OTP and other Utilities
 
