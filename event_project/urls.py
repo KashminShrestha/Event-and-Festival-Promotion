@@ -51,9 +51,9 @@ urlpatterns = [
     path("", include("Eventmain.urls")),
     path("user/", include("user.urls")),
     path("", include("firebase.urls")),
+    path("api/", include("support.urls")),
     # path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.authtoken")),
-    
     # Khalti payment integration
     path("khalti/", include("khalti.urls")),
 ]

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     # local apps
     "Eventmain",
     "user",
+    "support",
     "firebase",
     "drf_yasg",
     "khalti",
